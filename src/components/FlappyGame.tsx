@@ -1,29 +1,144 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { Pause, Play, RotateCcw, Settings2, Volume2, VolumeX, X, Sparkles, Trophy, Zap } from "lucide-react";
 
-// ---------- Tunables ----------
+// ---------- World ----------
 const WORLD_W = 480;
 const WORLD_H = 720;
-const GRAVITY = 1800;            // px/s^2
-const FLAP_VELOCITY = -520;      // px/s
-const MAX_FALL = 900;
-const PIPE_SPEED = 180;          // px/s
-const PIPE_GAP = 190;
-const PIPE_WIDTH = 84;
-const PIPE_INTERVAL = 1.55;      // seconds between pipes
 const BIRD_R = 18;
 const BIRD_X = WORLD_W * 0.3;
 const GROUND_H = 80;
+const MAX_FALL = 900;
+
+type Difficulty = "chill" | "normal" | "hard";
+type ThemeKey = "aurora" | "sunset" | "mint" | "noir";
+type Phase = "ready" | "playing" | "paused" | "dead";
+
+const DIFFICULTY: Record<Difficulty, { gravity: number; flap: number; speed: number; gap: number; interval: number; label: string }> = {
+  chill:  { gravity: 1500, flap: -480, speed: 150, gap: 220, interval: 1.75, label: "Chill" },
+  normal: { gravity: 1800, flap: -520, speed: 185, gap: 190, interval: 1.55, label: "Normal" },
+  hard:   { gravity: 2100, flap: -560, speed: 230, gap: 160, interval: 1.30, label: "Hard" },
+};
+
+const THEMES: Record<ThemeKey, {
+  label: string;
+  sky: [string, string, string];
+  bird: [string, string, string];
+  glow: string;
+  pipe: string;
+  orb: number;
+  swatch: string[];
+}> = {
+  aurora: {
+    label: "Aurora",
+    sky: ["#2a1b4a", "#3a4d8f", "#6fb6c9"],
+    bird: ["rgba(255,255,255,0.95)", "rgba(255,200,240,0.85)", "rgba(140,120,255,0.7)"],
+    glow: "rgba(255,180,240,0.7)",
+    pipe: "200",
+    orb: 200,
+    swatch: ["#2a1b4a", "#6fb6c9", "#ff9ff3"],
+  },
+  sunset: {
+    label: "Sunset",
+    sky: ["#2d0e3a", "#a83264", "#ffb88c"],
+    bird: ["rgba(255,255,255,0.95)", "rgba(255,210,160,0.85)", "rgba(255,90,140,0.7)"],
+    glow: "rgba(255,160,120,0.75)",
+    pipe: "30",
+    orb: 20,
+    swatch: ["#2d0e3a", "#ff6b6b", "#ffb88c"],
+  },
+  mint: {
+    label: "Mint",
+    sky: ["#062b2a", "#0f6e6b", "#7dd3c0"],
+    bird: ["rgba(255,255,255,0.95)", "rgba(180,255,230,0.85)", "rgba(80,220,200,0.7)"],
+    glow: "rgba(140,255,220,0.75)",
+    pipe: "170",
+    orb: 160,
+    swatch: ["#062b2a", "#7dd3c0", "#a7f3d0"],
+  },
+  noir: {
+    label: "Noir",
+    sky: ["#0a0a14", "#1a1a2e", "#2d2d44"],
+    bird: ["rgba(255,255,255,0.95)", "rgba(220,220,240,0.8)", "rgba(120,120,180,0.6)"],
+    glow: "rgba(255,255,255,0.6)",
+    pipe: "0",
+    orb: 260,
+    swatch: ["#0a0a14", "#2d2d44", "#dcdcef"],
+  },
+};
 
 type Pipe = { x: number; gapY: number; passed: boolean; id: number };
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; hue: number };
 
-type Phase = "ready" | "playing" | "dead";
+// ---------- Audio ----------
+class SfxEngine {
+  ctx: AudioContext | null = null;
+  enabled = true;
+  ensure() {
+    if (!this.ctx) {
+      try { this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); }
+      catch { /* noop */ }
+    }
+    if (this.ctx?.state === "suspended") this.ctx.resume();
+    return this.ctx;
+  }
+  blip(freq: number, dur = 0.08, type: OscillatorType = "sine", vol = 0.08) {
+    if (!this.enabled) return;
+    const ctx = this.ensure();
+    if (!ctx) return;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, ctx.currentTime);
+    g.gain.setValueAtTime(vol, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + dur);
+  }
+  flap() { this.blip(520, 0.09, "triangle", 0.06); }
+  score() { this.blip(880, 0.07, "sine", 0.07); setTimeout(() => this.blip(1320, 0.08, "sine", 0.06), 60); }
+  crash() {
+    if (!this.enabled) return;
+    const ctx = this.ensure(); if (!ctx) return;
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(220, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.35);
+    g.gain.setValueAtTime(0.18, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+    o.connect(g).connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.4);
+  }
+}
+
+function medalFor(score: number) {
+  if (score >= 40) return { label: "Prism", color: "from-fuchsia-400 to-cyan-300" };
+  if (score >= 20) return { label: "Gold", color: "from-yellow-300 to-amber-500" };
+  if (score >= 10) return { label: "Silver", color: "from-slate-200 to-slate-400" };
+  if (score >= 3)  return { label: "Bronze", color: "from-orange-300 to-amber-700" };
+  return { label: "Rookie", color: "from-white/40 to-white/10" };
+}
 
 export function FlappyGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const sfxRef = useRef(new SfxEngine());
 
-  // Mutable game state lives in a ref to avoid re-renders per frame.
+  // Persistent settings
+  const [theme, setTheme] = useState<ThemeKey>("aurora");
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [soundOn, setSoundOn] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Stats
+  const [best, setBest] = useState(0);
+  const [games, setGames] = useState(0);
+  const [totalFlaps, setTotalFlaps] = useState(0);
+
+  // UI state
+  const [score, setScore] = useState(0);
+  const [phase, setPhase] = useState<Phase>("ready");
+
   const stateRef = useRef({
     phase: "ready" as Phase,
     bird: { y: WORLD_H / 2, vy: 0, rot: 0 },
@@ -36,75 +151,88 @@ export function FlappyGame() {
     t: 0,
     shake: 0,
     flash: 0,
+    diff: DIFFICULTY.normal,
+    theme: THEMES.aurora,
   });
 
-  const [, force] = useState(0);
-  const [score, setScore] = useState(0);
-  const [best, setBest] = useState(0);
-  const [phase, setPhase] = useState<Phase>("ready");
+  const theTheme = useMemo(() => THEMES[theme], [theme]);
 
-  // Load best
+  // Load persisted
   useEffect(() => {
     const b = Number(localStorage.getItem("glassbird:best") || 0);
+    const g = Number(localStorage.getItem("glassbird:games") || 0);
+    const f = Number(localStorage.getItem("glassbird:flaps") || 0);
+    const t = (localStorage.getItem("glassbird:theme") as ThemeKey) || "aurora";
+    const d = (localStorage.getItem("glassbird:diff") as Difficulty) || "normal";
+    const s = localStorage.getItem("glassbird:sound");
     stateRef.current.best = b;
-    setBest(b);
+    setBest(b); setGames(g); setTotalFlaps(f);
+    if (THEMES[t]) setTheme(t);
+    if (DIFFICULTY[d]) setDifficulty(d);
+    if (s !== null) setSoundOn(s === "1");
   }, []);
+
+  useEffect(() => { localStorage.setItem("glassbird:theme", theme); stateRef.current.theme = THEMES[theme]; }, [theme]);
+  useEffect(() => { localStorage.setItem("glassbird:diff", difficulty); stateRef.current.diff = DIFFICULTY[difficulty]; }, [difficulty]);
+  useEffect(() => { localStorage.setItem("glassbird:sound", soundOn ? "1" : "0"); sfxRef.current.enabled = soundOn; }, [soundOn]);
 
   const reset = useCallback(() => {
     const s = stateRef.current;
     s.bird = { y: WORLD_H / 2, vy: 0, rot: 0 };
-    s.pipes = [];
-    s.particles = [];
-    s.spawnTimer = 0;
-    s.pipeId = 0;
-    s.score = 0;
-    s.t = 0;
-    s.shake = 0;
-    s.flash = 0;
+    s.pipes = []; s.particles = [];
+    s.spawnTimer = 0; s.pipeId = 0; s.score = 0;
+    s.t = 0; s.shake = 0; s.flash = 0;
     s.phase = "ready";
-    setScore(0);
-    setPhase("ready");
+    setScore(0); setPhase("ready");
   }, []);
 
   const flap = useCallback(() => {
     const s = stateRef.current;
+    if (s.phase === "paused") return;
     if (s.phase === "ready") {
       s.phase = "playing";
       setPhase("playing");
     }
-    if (s.phase === "dead") {
-      reset();
-      return;
-    }
-    s.bird.vy = FLAP_VELOCITY;
-    // burst particles
+    if (s.phase === "dead") { reset(); return; }
+    s.bird.vy = s.diff.flap;
+    sfxRef.current.flap();
+    setTotalFlaps((f) => { const n = f + 1; localStorage.setItem("glassbird:flaps", String(n)); return n; });
     for (let i = 0; i < 10; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 60 + Math.random() * 120;
       s.particles.push({
-        x: BIRD_X - 6,
-        y: s.bird.y + 6,
+        x: BIRD_X - 6, y: s.bird.y + 6,
         vx: Math.cos(a) * sp * 0.4 - 40,
         vy: Math.sin(a) * sp * 0.4 + 30,
-        life: 0,
-        max: 0.5 + Math.random() * 0.4,
+        life: 0, max: 0.5 + Math.random() * 0.4,
         size: 2 + Math.random() * 3,
-        hue: 200 + Math.random() * 140,
+        hue: stateRef.current.theme.orb + Math.random() * 80 - 40,
       });
     }
   }, [reset]);
 
-  // Input
+  const togglePause = useCallback(() => {
+    const s = stateRef.current;
+    if (s.phase === "playing") { s.phase = "paused"; setPhase("paused"); }
+    else if (s.phase === "paused") { s.phase = "playing"; setPhase("playing"); }
+  }, []);
+
+  // Keyboard
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") {
-        e.preventDefault();
-        flap();
+        e.preventDefault(); flap();
+      } else if (e.code === "KeyP" || e.code === "Escape") {
+        e.preventDefault(); togglePause();
+      } else if (e.code === "KeyM") {
+        setSoundOn((s) => !s);
+      } else if (e.code === "KeyR") {
+        reset();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [flap]);
+  }, [flap, togglePause, reset]);
 
   // Game loop
   useEffect(() => {
@@ -132,22 +260,17 @@ export function FlappyGame() {
     const die = () => {
       const s = stateRef.current;
       if (s.phase !== "playing") return;
-      s.phase = "dead";
-      s.shake = 14;
-      s.flash = 1;
-      // crash particles
-      for (let i = 0; i < 50; i++) {
+      s.phase = "dead"; s.shake = 14; s.flash = 1;
+      sfxRef.current.crash();
+      for (let i = 0; i < 60; i++) {
         const a = Math.random() * Math.PI * 2;
-        const sp = 80 + Math.random() * 260;
+        const sp = 80 + Math.random() * 280;
         s.particles.push({
-          x: BIRD_X,
-          y: s.bird.y,
-          vx: Math.cos(a) * sp,
-          vy: Math.sin(a) * sp,
-          life: 0,
-          max: 0.8 + Math.random() * 0.6,
+          x: BIRD_X, y: s.bird.y,
+          vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          life: 0, max: 0.8 + Math.random() * 0.6,
           size: 2 + Math.random() * 4,
-          hue: 280 + Math.random() * 80,
+          hue: stateRef.current.theme.orb + Math.random() * 80,
         });
       }
       if (s.score > s.best) {
@@ -155,6 +278,7 @@ export function FlappyGame() {
         localStorage.setItem("glassbird:best", String(s.best));
         setBest(s.best);
       }
+      setGames((g) => { const n = g + 1; localStorage.setItem("glassbird:games", String(n)); return n; });
       setPhase("dead");
     };
 
@@ -162,56 +286,50 @@ export function FlappyGame() {
       const dt = Math.min(0.033, (now - last) / 1000);
       last = now;
       const s = stateRef.current;
+      const D = s.diff;
+      const TH = s.theme;
       s.t += dt;
 
-      // ---- update ----
       if (s.phase === "ready") {
-        // gentle hover
         s.bird.y = WORLD_H / 2 + Math.sin(s.t * 2.4) * 12;
         s.bird.rot = Math.sin(s.t * 2.4) * 0.15;
       } else if (s.phase === "playing") {
-        s.bird.vy += GRAVITY * dt;
+        s.bird.vy += D.gravity * dt;
         if (s.bird.vy > MAX_FALL) s.bird.vy = MAX_FALL;
         s.bird.y += s.bird.vy * dt;
-        // rotation smooth toward velocity
         const target = Math.max(-0.5, Math.min(1.2, s.bird.vy / 600));
         s.bird.rot += (target - s.bird.rot) * Math.min(1, dt * 8);
 
-        // spawn pipes
         s.spawnTimer += dt;
-        if (s.spawnTimer >= PIPE_INTERVAL) {
+        if (s.spawnTimer >= D.interval) {
           s.spawnTimer = 0;
           const margin = 90;
-          const gapY = margin + Math.random() * (WORLD_H - GROUND_H - margin * 2 - PIPE_GAP);
+          const gapY = margin + Math.random() * (WORLD_H - GROUND_H - margin * 2 - D.gap);
           s.pipes.push({ x: WORLD_W + 20, gapY, passed: false, id: ++s.pipeId });
         }
-        // move pipes
         for (const p of s.pipes) {
-          p.x -= PIPE_SPEED * dt;
-          if (!p.passed && p.x + PIPE_WIDTH < BIRD_X - BIRD_R) {
-            p.passed = true;
-            s.score += 1;
-            setScore(s.score);
+          p.x -= D.speed * dt;
+          if (!p.passed && p.x + 84 < BIRD_X - BIRD_R) {
+            p.passed = true; s.score += 1; setScore(s.score);
+            sfxRef.current.score();
           }
         }
-        s.pipes = s.pipes.filter((p) => p.x > -PIPE_WIDTH - 20);
+        s.pipes = s.pipes.filter((p) => p.x > -84 - 20);
 
-        // collide
         if (s.bird.y + BIRD_R > WORLD_H - GROUND_H || s.bird.y - BIRD_R < 0) {
           s.bird.y = Math.min(WORLD_H - GROUND_H - BIRD_R, Math.max(BIRD_R, s.bird.y));
           die();
         } else {
           for (const p of s.pipes) {
-            if (BIRD_X + BIRD_R > p.x && BIRD_X - BIRD_R < p.x + PIPE_WIDTH) {
-              if (s.bird.y - BIRD_R < p.gapY || s.bird.y + BIRD_R > p.gapY + PIPE_GAP) {
-                die();
-                break;
+            if (BIRD_X + BIRD_R > p.x && BIRD_X - BIRD_R < p.x + 84) {
+              if (s.bird.y - BIRD_R < p.gapY || s.bird.y + BIRD_R > p.gapY + D.gap) {
+                die(); break;
               }
             }
           }
         }
       } else if (s.phase === "dead") {
-        s.bird.vy += GRAVITY * dt;
+        s.bird.vy += D.gravity * dt;
         s.bird.y += s.bird.vy * dt;
         s.bird.rot += dt * 4;
         if (s.bird.y + BIRD_R > WORLD_H - GROUND_H) {
@@ -220,7 +338,6 @@ export function FlappyGame() {
         }
       }
 
-      // particles
       for (const p of s.particles) {
         p.life += dt;
         p.vy += 200 * dt;
@@ -231,7 +348,7 @@ export function FlappyGame() {
       s.shake *= Math.pow(0.001, dt);
       s.flash *= Math.pow(0.02, dt);
 
-      // ---- draw ----
+      // draw
       const W = (canvas as any)._w as number;
       const H = (canvas as any)._h as number;
       const dpr = (canvas as any)._dpr as number;
@@ -239,42 +356,35 @@ export function FlappyGame() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.scale(dpr, dpr);
 
-      // Map world (WORLD_W x WORLD_H) into canvas keeping aspect
       const scale = Math.min(W / WORLD_W, H / WORLD_H);
       const ox = (W - WORLD_W * scale) / 2 + (Math.random() - 0.5) * s.shake;
       const oy = (H - WORLD_H * scale) / 2 + (Math.random() - 0.5) * s.shake;
       ctx.translate(ox, oy);
       ctx.scale(scale, scale);
 
-      // Sky gradient
       const sky = ctx.createLinearGradient(0, 0, 0, WORLD_H);
-      sky.addColorStop(0, "#2a1b4a");
-      sky.addColorStop(0.5, "#3a4d8f");
-      sky.addColorStop(1, "#6fb6c9");
+      sky.addColorStop(0, TH.sky[0]);
+      sky.addColorStop(0.5, TH.sky[1]);
+      sky.addColorStop(1, TH.sky[2]);
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, WORLD_W, WORLD_H);
 
-      // parallax orbs
       for (let i = 0; i < 5; i++) {
         const px = ((i * 137 - s.t * 18) % (WORLD_W + 200) + WORLD_W + 200) % (WORLD_W + 200) - 100;
         const py = 80 + i * 90 + Math.sin(s.t * 0.5 + i) * 20;
         const r = 60 + i * 12;
         const g = ctx.createRadialGradient(px, py, 0, px, py, r);
-        g.addColorStop(0, `hsla(${200 + i * 30}, 80%, 70%, 0.35)`);
-        g.addColorStop(1, "hsla(280, 80%, 60%, 0)");
+        g.addColorStop(0, `hsla(${TH.orb + i * 30}, 80%, 70%, 0.35)`);
+        g.addColorStop(1, `hsla(${TH.orb + 80}, 80%, 60%, 0)`);
         ctx.fillStyle = g;
         ctx.beginPath();
         ctx.arc(px, py, r, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // Pipes — liquid glass
-      for (const p of s.pipes) drawPipe(ctx, p);
-
-      // Ground — glass strip
+      for (const p of s.pipes) drawPipe(ctx, p, D.gap, TH.pipe);
       drawGround(ctx, s.t);
 
-      // Particles
       for (const p of s.particles) {
         const a = 1 - p.life / p.max;
         ctx.fillStyle = `hsla(${p.hue}, 90%, 75%, ${a * 0.9})`;
@@ -283,10 +393,13 @@ export function FlappyGame() {
         ctx.fill();
       }
 
-      // Bird
-      drawBird(ctx, s.bird.y, s.bird.rot, s.t);
+      drawBird(ctx, s.bird.y, s.bird.rot, s.t, TH.bird, TH.glow);
 
-      // flash
+      if (s.phase === "paused") {
+        ctx.fillStyle = "rgba(10,10,30,0.45)";
+        ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+      }
+
       if (s.flash > 0.01) {
         ctx.fillStyle = `rgba(255,255,255,${s.flash * 0.6})`;
         ctx.fillRect(0, 0, WORLD_W, WORLD_H);
@@ -295,17 +408,16 @@ export function FlappyGame() {
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
   }, []);
 
-  // touch/click on the canvas wrapper to flap
   const handlePointer = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest("[data-no-flap]")) return;
     e.preventDefault();
     flap();
   };
+
+  const medal = medalFor(score);
 
   return (
     <main
@@ -315,23 +427,39 @@ export function FlappyGame() {
           "radial-gradient(1200px 800px at 20% 10%, oklch(0.45 0.2 300 / 0.6), transparent 60%), radial-gradient(1000px 700px at 90% 90%, oklch(0.55 0.2 200 / 0.55), transparent 60%), oklch(0.14 0.05 270)",
       }}
     >
-      {/* ambient floating orbs */}
       <div className="pointer-events-none absolute -top-32 -left-24 h-96 w-96 rounded-full opacity-60 animate-float-orb"
            style={{ background: "radial-gradient(circle, oklch(0.7 0.25 330 / 0.7), transparent 60%)" }} />
       <div className="pointer-events-none absolute bottom-0 -right-24 h-[28rem] w-[28rem] rounded-full opacity-50 animate-float-orb"
            style={{ background: "radial-gradient(circle, oklch(0.7 0.25 200 / 0.7), transparent 60%)", animationDelay: "-4s" }} />
 
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-4 gap-4">
-        <header className="w-full max-w-[480px] flex items-center justify-between">
+        {/* Top bar */}
+        <header className="w-full max-w-[480px] flex items-center justify-between gap-2">
           <div className="glass rounded-full px-4 py-2 flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_var(--color-primary)]" />
             <span className="text-sm tracking-wide font-medium">Glassbird</span>
+            <span className="text-xs text-white/50 ml-1 hidden sm:inline">· {DIFFICULTY[difficulty].label}</span>
           </div>
-          <div className="glass rounded-full px-4 py-2 text-sm">
-            Best <span className="font-display text-lg ml-1">{best}</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSoundOn((s) => !s)}
+              className="glass rounded-full h-9 w-9 grid place-items-center hover:scale-105 transition-transform"
+              aria-label="Toggle sound"
+              title="Mute (M)"
+            >
+              {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-white/50" />}
+            </button>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="glass rounded-full h-9 w-9 grid place-items-center hover:scale-105 transition-transform"
+              aria-label="Settings"
+            >
+              <Settings2 className="h-4 w-4" />
+            </button>
           </div>
         </header>
 
+        {/* Game frame */}
         <div
           ref={wrapRef}
           onPointerDown={handlePointer}
@@ -347,37 +475,216 @@ export function FlappyGame() {
             </div>
           </div>
 
+          {/* Top-right in-game controls */}
+          {(phase === "playing" || phase === "paused") && (
+            <div data-no-flap className="absolute top-5 right-5 flex gap-2">
+              <button
+                onClick={togglePause}
+                className="glass rounded-full h-9 w-9 grid place-items-center hover:scale-105 transition"
+                aria-label="Pause"
+                title="Pause (P)"
+              >
+                {phase === "paused" ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+              </button>
+              <button
+                onClick={reset}
+                className="glass rounded-full h-9 w-9 grid place-items-center hover:scale-105 transition"
+                aria-label="Restart"
+                title="Restart (R)"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Best chip */}
+          <div className="pointer-events-none absolute top-5 left-5">
+            <div className="glass rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/70 flex items-center gap-1">
+              <Trophy className="h-3 w-3" /> {best}
+            </div>
+          </div>
+
           {/* Overlays */}
           {phase === "ready" && (
             <Overlay>
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.3em] text-white/60">
+                <Sparkles className="h-3 w-3" /> Liquid flight
+              </div>
               <h1 className="font-display text-5xl text-balance leading-none">
                 Glass<span className="italic">bird</span>
               </h1>
               <p className="text-sm text-white/70 max-w-[18rem] text-balance">
                 Tap, click or press space to flap. Glide through the prisms.
               </p>
-              <button onClick={flap} className="mt-2 glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform">
+              <div data-no-flap className="flex items-center gap-2 mt-1">
+                {(Object.keys(THEMES) as ThemeKey[]).map((k) => (
+                  <button
+                    key={k}
+                    onClick={(e) => { e.stopPropagation(); setTheme(k); }}
+                    className={`h-7 w-7 rounded-full border transition ${theme === k ? "border-white scale-110" : "border-white/30 hover:border-white/60"}`}
+                    style={{ background: `linear-gradient(135deg, ${THEMES[k].swatch.join(", ")})` }}
+                    aria-label={THEMES[k].label}
+                    title={THEMES[k].label}
+                  />
+                ))}
+              </div>
+              <button data-no-flap onClick={(e) => { e.stopPropagation(); flap(); }} className="mt-2 glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform">
                 Begin flight
+              </button>
+              <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 mt-1">
+                space · tap · click
+              </div>
+            </Overlay>
+          )}
+
+          {phase === "paused" && (
+            <Overlay>
+              <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">Paused</div>
+              <h2 className="font-display text-4xl">Take a breath</h2>
+              <button data-no-flap onClick={(e) => { e.stopPropagation(); togglePause(); }} className="mt-1 glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform inline-flex items-center gap-2">
+                <Play className="h-4 w-4" /> Resume
               </button>
             </Overlay>
           )}
+
           {phase === "dead" && (
             <Overlay>
-              <div className="text-xs uppercase tracking-[0.3em] text-white/60">Splash</div>
-              <h2 className="font-display text-5xl">{score}</h2>
-              <div className="text-sm text-white/70">Best · {best}</div>
-              <button onClick={flap} className="mt-2 glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform">
+              <div className={`text-[10px] uppercase tracking-[0.3em] bg-gradient-to-r ${medal.color} bg-clip-text text-transparent font-semibold`}>
+                {medal.label}
+              </div>
+              <div className="flex items-end gap-6">
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Score</span>
+                  <span className="font-display text-5xl leading-none">{score}</span>
+                </div>
+                <div className="h-10 w-px bg-white/15" />
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Best</span>
+                  <span className="font-display text-3xl leading-none text-white/80">{best}</span>
+                </div>
+              </div>
+              {score > 0 && score === best && (
+                <div className="text-[11px] uppercase tracking-[0.25em] text-amber-300 flex items-center gap-1">
+                  <Zap className="h-3 w-3" /> New best
+                </div>
+              )}
+              <button data-no-flap onClick={(e) => { e.stopPropagation(); flap(); }} className="mt-1 glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform">
                 Fly again
               </button>
             </Overlay>
           )}
         </div>
 
-        <footer className="text-xs text-white/50 tracking-wide">
-          space · tap · click
+        {/* Stats strip */}
+        <div className="w-full max-w-[480px] grid grid-cols-3 gap-2">
+          <Stat label="Best" value={best} />
+          <Stat label="Games" value={games} />
+          <Stat label="Flaps" value={totalFlaps} />
+        </div>
+
+        <footer className="text-[10px] uppercase tracking-[0.25em] text-white/40">
+          space flap · P pause · M mute · R reset
         </footer>
       </div>
+
+      {/* Settings drawer */}
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSettingsOpen(false)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md glass-strong rounded-3xl p-6 animate-in slide-in-from-bottom-6 duration-300">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-display text-2xl">Settings</h3>
+              <button onClick={() => setSettingsOpen(false)} className="h-8 w-8 grid place-items-center rounded-full glass hover:scale-105 transition">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <Section title="Theme">
+              <div className="grid grid-cols-2 gap-2">
+                {(Object.keys(THEMES) as ThemeKey[]).map((k) => (
+                  <button
+                    key={k}
+                    onClick={() => setTheme(k)}
+                    className={`relative rounded-2xl p-3 text-left border transition ${theme === k ? "border-white/80" : "border-white/15 hover:border-white/40"}`}
+                    style={{ background: `linear-gradient(135deg, ${THEMES[k].swatch.join(", ")})` }}
+                  >
+                    <div className="text-xs font-medium text-white drop-shadow">{THEMES[k].label}</div>
+                  </button>
+                ))}
+              </div>
+            </Section>
+
+            <Section title="Difficulty">
+              <div className="grid grid-cols-3 gap-2">
+                {(Object.keys(DIFFICULTY) as Difficulty[]).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setDifficulty(d)}
+                    className={`rounded-xl py-2 text-sm transition ${difficulty === d ? "glass-strong" : "glass hover:bg-white/10"}`}
+                  >
+                    {DIFFICULTY[d].label}
+                  </button>
+                ))}
+              </div>
+            </Section>
+
+            <Section title="Audio">
+              <button
+                onClick={() => setSoundOn((s) => !s)}
+                className="w-full glass rounded-xl px-4 py-3 flex items-center justify-between hover:bg-white/10 transition"
+              >
+                <span className="text-sm">Sound effects</span>
+                <span className={`h-6 w-11 rounded-full relative transition ${soundOn ? "bg-primary/70" : "bg-white/15"}`}>
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${soundOn ? "left-[1.4rem]" : "left-0.5"}`} />
+                </span>
+              </button>
+            </Section>
+
+            <Section title="Stats">
+              <div className="grid grid-cols-3 gap-2">
+                <Stat label="Best" value={best} />
+                <Stat label="Games" value={games} />
+                <Stat label="Flaps" value={totalFlaps} />
+              </div>
+              <button
+                onClick={() => {
+                  localStorage.removeItem("glassbird:best");
+                  localStorage.removeItem("glassbird:games");
+                  localStorage.removeItem("glassbird:flaps");
+                  stateRef.current.best = 0;
+                  setBest(0); setGames(0); setTotalFlaps(0);
+                }}
+                className="mt-2 w-full glass rounded-xl px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-white/10 transition"
+              >
+                Reset stats
+              </button>
+            </Section>
+
+            <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 text-center mt-2">
+              shortcuts · space P M R
+            </div>
+          </div>
+        </div>
+      )}
     </main>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-5">
+      <div className="text-[10px] uppercase tracking-[0.25em] text-white/50 mb-2">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="glass rounded-2xl px-3 py-2 text-center">
+      <div className="text-[10px] uppercase tracking-[0.2em] text-white/50">{label}</div>
+      <div className="font-display text-2xl leading-tight">{value}</div>
+    </div>
   );
 }
 
@@ -392,23 +699,21 @@ function Overlay({ children }: { children: React.ReactNode }) {
 }
 
 // ---- draw helpers ----
-function drawPipe(ctx: CanvasRenderingContext2D, p: Pipe) {
+function drawPipe(ctx: CanvasRenderingContext2D, p: Pipe, gap: number, hue: string) {
+  const PIPE_WIDTH = 84;
   const topH = p.gapY;
-  const botY = p.gapY + PIPE_GAP;
+  const botY = p.gapY + gap;
   const botH = WORLD_H - GROUND_H - botY;
 
   const draw = (x: number, y: number, w: number, h: number) => {
-    // glass body
     const grd = ctx.createLinearGradient(x, 0, x + w, 0);
     grd.addColorStop(0, "rgba(255,255,255,0.05)");
-    grd.addColorStop(0.3, "rgba(180,230,255,0.22)");
-    grd.addColorStop(0.7, "rgba(140,200,255,0.18)");
+    grd.addColorStop(0.3, `hsla(${hue}, 80%, 80%, 0.22)`);
+    grd.addColorStop(0.7, `hsla(${hue}, 80%, 70%, 0.18)`);
     grd.addColorStop(1, "rgba(255,255,255,0.05)");
     roundRect(ctx, x, y, w, h, 14);
     ctx.fillStyle = grd;
     ctx.fill();
-
-    // inner highlight
     ctx.save();
     ctx.beginPath();
     roundRect(ctx, x, y, w, h, 14);
@@ -418,8 +723,6 @@ function drawPipe(ctx: CanvasRenderingContext2D, p: Pipe) {
     ctx.fillStyle = "rgba(255,255,255,0.08)";
     ctx.fillRect(x + w - 12, y + 4, 3, h - 8);
     ctx.restore();
-
-    // border
     ctx.strokeStyle = "rgba(255,255,255,0.35)";
     ctx.lineWidth = 1.2;
     roundRect(ctx, x + 0.5, y + 0.5, w - 1, h - 1, 13);
@@ -429,13 +732,12 @@ function drawPipe(ctx: CanvasRenderingContext2D, p: Pipe) {
   if (topH > 0) draw(p.x, 0, PIPE_WIDTH, topH);
   if (botH > 0) draw(p.x, botY, PIPE_WIDTH, botH);
 
-  // glowing rim at gap edges
   ctx.save();
-  ctx.shadowColor = "rgba(140,220,255,0.9)";
+  ctx.shadowColor = `hsla(${hue}, 90%, 75%, 0.9)`;
   ctx.shadowBlur = 18;
-  ctx.fillStyle = "rgba(200,240,255,0.85)";
+  ctx.fillStyle = `hsla(${hue}, 90%, 85%, 0.85)`;
   ctx.fillRect(p.x + 4, p.gapY - 3, PIPE_WIDTH - 8, 3);
-  ctx.fillRect(p.x + 4, p.gapY + PIPE_GAP, PIPE_WIDTH - 8, 3);
+  ctx.fillRect(p.x + 4, p.gapY + gap, PIPE_WIDTH - 8, 3);
   ctx.restore();
 }
 
@@ -446,12 +748,8 @@ function drawGround(ctx: CanvasRenderingContext2D, t: number) {
   g.addColorStop(1, "rgba(40,30,80,0.55)");
   ctx.fillStyle = g;
   ctx.fillRect(0, y, WORLD_W, GROUND_H);
-
-  // top highlight line
   ctx.fillStyle = "rgba(255,255,255,0.4)";
   ctx.fillRect(0, y, WORLD_W, 1);
-
-  // moving shimmer stripes
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, y, WORLD_W, GROUND_H);
@@ -468,42 +766,37 @@ function drawGround(ctx: CanvasRenderingContext2D, t: number) {
   ctx.restore();
 }
 
-function drawBird(ctx: CanvasRenderingContext2D, y: number, rot: number, t: number) {
+function drawBird(ctx: CanvasRenderingContext2D, y: number, rot: number, t: number, palette: [string, string, string], glow: string) {
   ctx.save();
   ctx.translate(BIRD_X, y);
   ctx.rotate(rot);
 
-  // outer glow
-  const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 36);
-  glow.addColorStop(0, "rgba(255,180,240,0.7)");
-  glow.addColorStop(1, "rgba(255,180,240,0)");
-  ctx.fillStyle = glow;
+  const g = ctx.createRadialGradient(0, 0, 4, 0, 0, 36);
+  g.addColorStop(0, glow);
+  g.addColorStop(1, "rgba(255,180,240,0)");
+  ctx.fillStyle = g;
   ctx.beginPath();
   ctx.arc(0, 0, 36, 0, Math.PI * 2);
   ctx.fill();
 
-  // body — glass orb
   const body = ctx.createRadialGradient(-6, -8, 2, 0, 0, BIRD_R + 4);
-  body.addColorStop(0, "rgba(255,255,255,0.95)");
-  body.addColorStop(0.4, "rgba(255,200,240,0.85)");
-  body.addColorStop(1, "rgba(140,120,255,0.7)");
+  body.addColorStop(0, palette[0]);
+  body.addColorStop(0.4, palette[1]);
+  body.addColorStop(1, palette[2]);
   ctx.fillStyle = body;
   ctx.beginPath();
   ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
   ctx.fill();
 
-  // rim
   ctx.strokeStyle = "rgba(255,255,255,0.6)";
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  // highlight
   ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.beginPath();
   ctx.ellipse(-6, -8, 5, 3, -0.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // wing — animated
   const wing = Math.sin(t * 18) * 0.6;
   ctx.save();
   ctx.translate(-2, 2);
@@ -516,7 +809,6 @@ function drawBird(ctx: CanvasRenderingContext2D, y: number, rot: number, t: numb
   ctx.stroke();
   ctx.restore();
 
-  // eye
   ctx.fillStyle = "#1a1530";
   ctx.beginPath();
   ctx.arc(7, -3, 2.2, 0, Math.PI * 2);
@@ -526,7 +818,6 @@ function drawBird(ctx: CanvasRenderingContext2D, y: number, rot: number, t: numb
   ctx.arc(7.7, -3.7, 0.8, 0, Math.PI * 2);
   ctx.fill();
 
-  // beak
   ctx.fillStyle = "rgba(255,200,120,0.95)";
   ctx.beginPath();
   ctx.moveTo(14, 0);
