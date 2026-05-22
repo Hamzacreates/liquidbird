@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { Pause, Play, RotateCcw, Settings2, Volume2, VolumeX, X, Sparkles, Trophy, Zap } from "lucide-react";
+import { Pause, Play, RotateCcw, Settings2, Volume2, VolumeX, X, Sparkles, Trophy, Zap, Maximize2, Minimize2, Wifi, WifiOff, Keyboard, Target, Flame, Award, Clock, Activity, Gauge } from "lucide-react";
 
 // ---------- World ----------
 const WORLD_W = 480;
