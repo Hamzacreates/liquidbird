@@ -807,6 +807,68 @@ export function FlappyGame() {
   );
 }
 
+function fmtTime(ms: number) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, "0")}`;
+}
+
+function IconBtn({ children, onClick, active, label, title }: { children: React.ReactNode; onClick: () => void; active?: boolean; label: string; title?: string }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={title || label}
+      className={`rounded-full h-9 w-9 grid place-items-center transition-transform hover:scale-105 ${active ? "glass-strong text-primary" : "glass"}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Panel({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="glass rounded-2xl p-4">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.25em] text-white/50 mb-3">
+        {icon}{title}
+      </div>
+      <div className="flex flex-col gap-2">{children}</div>
+    </div>
+  );
+}
+
+function RailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center gap-2 text-white/70">{icon}{label}</div>
+      <div className="font-display text-base leading-none text-white/95">{value}</div>
+    </div>
+  );
+}
+
+function Achievement({ label, unlocked, hint }: { label: string; unlocked: boolean; hint: string }) {
+  return (
+    <div className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs transition ${unlocked ? "bg-gradient-to-r from-amber-400/15 to-fuchsia-400/15 border border-white/20" : "bg-white/[0.03] border border-white/10"}`}>
+      <div className="flex items-center gap-2">
+        <span className={`h-2 w-2 rounded-full ${unlocked ? "bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,0.8)]" : "bg-white/20"}`} />
+        <span className={unlocked ? "text-white" : "text-white/50"}>{label}</span>
+      </div>
+      <span className="text-[10px] uppercase tracking-[0.18em] text-white/40">{hint}</span>
+    </div>
+  );
+}
+
+function Key({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-white/70">{v}</span>
+      <kbd className="glass rounded-md px-2 py-0.5 text-[10px] tracking-wider text-white/80">{k}</kbd>
+    </div>
+  );
+}
+
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-5">
