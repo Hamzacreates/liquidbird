@@ -129,6 +129,9 @@ export function FlappyGame() {
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [soundOn, setSoundOn] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
 
   // Stats
   const [best, setBest] = useState(0);
@@ -138,6 +141,9 @@ export function FlappyGame() {
   // UI state
   const [score, setScore] = useState(0);
   const [phase, setPhase] = useState<Phase>("ready");
+  const [runFlaps, setRunFlaps] = useState(0);
+  const [runStart, setRunStart] = useState<number | null>(null);
+  const [runMs, setRunMs] = useState(0);
 
   const stateRef = useRef({
     phase: "ready" as Phase,
