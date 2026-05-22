@@ -242,17 +242,48 @@ export function FlappyGame() {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") {
         e.preventDefault(); flap();
-      } else if (e.code === "KeyP" || e.code === "Escape") {
+      } else if (e.code === "KeyP") {
         e.preventDefault(); togglePause();
+      } else if (e.code === "Escape") {
+        if (document.fullscreenElement) return; // browser handles exit
+        togglePause();
       } else if (e.code === "KeyM") {
         setSoundOn((s) => !s);
       } else if (e.code === "KeyR") {
         reset();
+      } else if (e.code === "KeyF") {
+        e.preventDefault(); toggleFullscreen();
+      } else if (e.code === "KeyZ") {
+        setFocusMode((v) => !v);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [flap, togglePause, reset]);
+  }, [flap, togglePause, reset, toggleFullscreen]);
+
+  // Fullscreen + online listeners
+  useEffect(() => {
+    const onFs = () => setIsFullscreen(!!document.fullscreenElement);
+    const onOn = () => setOnline(true);
+    const onOff = () => setOnline(false);
+    document.addEventListener("fullscreenchange", onFs);
+    window.addEventListener("online", onOn);
+    window.addEventListener("offline", onOff);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFs);
+      window.removeEventListener("online", onOn);
+      window.removeEventListener("offline", onOff);
+    };
+  }, []);
+
+  // Run timer
+  useEffect(() => {
+    if (phase !== "playing" || runStart === null) return;
+    const id = window.setInterval(() => setRunMs(performance.now() - runStart), 100);
+    return () => window.clearInterval(id);
+  }, [phase, runStart]);
+
+
 
   // Game loop
   useEffect(() => {
