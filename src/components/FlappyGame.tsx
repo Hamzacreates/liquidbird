@@ -483,160 +483,246 @@ export function FlappyGame() {
       <div className="pointer-events-none absolute bottom-0 -right-24 h-[28rem] w-[28rem] rounded-full opacity-50 animate-float-orb"
            style={{ background: "radial-gradient(circle, oklch(0.7 0.25 200 / 0.7), transparent 60%)", animationDelay: "-4s" }} />
 
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center p-4 gap-4">
+      <div className={`relative z-10 mx-auto flex min-h-screen w-full max-w-[1200px] flex-col items-center justify-center gap-4 p-3 sm:p-6 ${focusMode ? "max-w-[640px]" : ""}`}>
         {/* Top bar */}
-        <header className="w-full max-w-[480px] flex items-center justify-between gap-2">
-          <div className="glass rounded-full px-4 py-2 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_var(--color-primary)]" />
+        <header className="w-full flex items-center justify-between gap-2">
+          <div className="glass rounded-full px-4 py-2 flex items-center gap-2.5">
+            <span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_var(--color-primary)] animate-pulse" />
             <span className="text-sm tracking-wide font-medium">Glassbird</span>
-            <span className="text-xs text-white/50 ml-1 hidden sm:inline">· {DIFFICULTY[difficulty].label}</span>
+            <span className="hidden sm:inline text-xs text-white/40">·</span>
+            <span className="hidden sm:inline text-xs text-white/60">{DIFFICULTY[difficulty].label}</span>
+            <span className="hidden md:inline text-xs text-white/40">·</span>
+            <span className="hidden md:inline text-xs text-white/60">{THEMES[theme].label}</span>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSoundOn((s) => !s)}
-              className="glass rounded-full h-9 w-9 grid place-items-center hover:scale-105 transition-transform"
-              aria-label="Toggle sound"
-              title="Mute (M)"
-            >
+            <div className="glass rounded-full h-9 px-3 hidden sm:flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] text-white/60" title={online ? "Online — cached locally" : "Offline — playing from cache"}>
+              {online ? <Wifi className="h-3 w-3 text-emerald-300" /> : <WifiOff className="h-3 w-3 text-amber-300" />}
+              {online ? "Online" : "Offline"}
+            </div>
+            <IconBtn onClick={() => setFocusMode((v) => !v)} active={focusMode} label="Focus mode (Z)" title="Focus mode (Z)">
+              <Target className="h-4 w-4" />
+            </IconBtn>
+            <IconBtn onClick={toggleFullscreen} active={isFullscreen} label="Fullscreen (F)" title="Fullscreen (F)">
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </IconBtn>
+            <IconBtn onClick={() => setSoundOn((s) => !s)} label="Sound (M)" title="Mute (M)">
               {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-white/50" />}
-            </button>
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className="glass rounded-full h-9 w-9 grid place-items-center hover:scale-105 transition-transform"
-              aria-label="Settings"
-            >
+            </IconBtn>
+            <IconBtn onClick={() => setSettingsOpen(true)} label="Settings" title="Settings">
               <Settings2 className="h-4 w-4" />
-            </button>
+            </IconBtn>
           </div>
         </header>
 
-        {/* Game frame */}
-        <div
-          ref={wrapRef}
-          onPointerDown={handlePointer}
-          className="relative w-full max-w-[480px] rounded-[2rem] overflow-hidden glass-strong select-none"
-          style={{ aspectRatio: `${WORLD_W} / ${WORLD_H}`, touchAction: "none", cursor: "pointer" }}
-        >
-          <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+        {/* Main grid with side rails */}
+        <div className={`w-full grid gap-4 ${focusMode ? "grid-cols-1 place-items-center" : "lg:grid-cols-[1fr_auto_1fr] grid-cols-1 lg:items-start items-center justify-items-center"}`}>
+          {/* Left rail */}
+          {!focusMode && (
+            <aside className="hidden lg:flex w-full max-w-[260px] flex-col gap-3 self-stretch">
+              <Panel title="Live run" icon={<Activity className="h-3 w-3" />}>
+                <RailRow icon={<Flame className="h-3.5 w-3.5 text-amber-300" />} label="Score" value={String(score)} />
+                <RailRow icon={<Clock className="h-3.5 w-3.5 text-cyan-300" />} label="Time" value={fmtTime(runMs)} />
+                <RailRow icon={<Zap className="h-3.5 w-3.5 text-fuchsia-300" />} label="Flaps" value={String(runFlaps)} />
+                <RailRow icon={<Gauge className="h-3.5 w-3.5 text-emerald-300" />} label="FPS feel" value={DIFFICULTY[difficulty].label} />
+              </Panel>
+              <Panel title="Career" icon={<Trophy className="h-3 w-3" />}>
+                <RailRow icon={<Trophy className="h-3.5 w-3.5 text-amber-300" />} label="Best" value={String(best)} />
+                <RailRow icon={<Award className="h-3.5 w-3.5 text-cyan-200" />} label="Games" value={String(games)} />
+                <RailRow icon={<Zap className="h-3.5 w-3.5 text-fuchsia-300" />} label="Total flaps" value={String(totalFlaps)} />
+              </Panel>
+              <Panel title="Palette" icon={<Sparkles className="h-3 w-3" />}>
+                <div className="grid grid-cols-4 gap-2">
+                  {(Object.keys(THEMES) as ThemeKey[]).map((k) => (
+                    <button
+                      key={k}
+                      onClick={() => setTheme(k)}
+                      className={`h-9 rounded-lg border transition ${theme === k ? "border-white scale-105" : "border-white/15 hover:border-white/40"}`}
+                      style={{ background: `linear-gradient(135deg, ${THEMES[k].swatch.join(", ")})` }}
+                      title={THEMES[k].label}
+                      aria-label={THEMES[k].label}
+                    />
+                  ))}
+                </div>
+              </Panel>
+            </aside>
+          )}
 
-          {/* HUD score */}
-          <div className="pointer-events-none absolute top-6 left-1/2 -translate-x-1/2">
-            <div className="glass rounded-full px-6 py-2 font-display text-4xl leading-none">
-              {score}
+          {/* Game frame */}
+          <div
+            ref={wrapRef}
+            onPointerDown={handlePointer}
+            className="relative w-full max-w-[480px] rounded-[2rem] overflow-hidden glass-strong select-none shadow-[0_30px_120px_-20px_rgba(120,80,255,0.45)]"
+            style={{ aspectRatio: `${WORLD_W} / ${WORLD_H}`, touchAction: "none", cursor: "pointer" }}
+          >
+            <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+
+            {/* HUD score */}
+            <div className="pointer-events-none absolute top-6 left-1/2 -translate-x-1/2">
+              <div className="glass rounded-full px-6 py-2 font-display text-4xl leading-none">
+                {score}
+              </div>
             </div>
+
+            {/* Top-right in-game controls */}
+            {(phase === "playing" || phase === "paused") && (
+              <div data-no-flap className="absolute top-5 right-5 flex gap-2">
+                <button
+                  onClick={togglePause}
+                  className="glass rounded-full h-9 w-9 grid place-items-center hover:scale-105 transition"
+                  aria-label="Pause"
+                  title="Pause (P)"
+                >
+                  {phase === "paused" ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                </button>
+                <button
+                  onClick={reset}
+                  className="glass rounded-full h-9 w-9 grid place-items-center hover:scale-105 transition"
+                  aria-label="Restart"
+                  title="Restart (R)"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Best chip */}
+            <div className="pointer-events-none absolute top-5 left-5">
+              <div className="glass rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/70 flex items-center gap-1">
+                <Trophy className="h-3 w-3" /> {best}
+              </div>
+            </div>
+
+            {/* Bottom HUD: live run while playing */}
+            {phase === "playing" && (
+              <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                <div className="glass rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/70 flex items-center gap-1.5">
+                  <Clock className="h-3 w-3" /> {fmtTime(runMs)}
+                </div>
+                <div className="glass rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/70 flex items-center gap-1.5">
+                  <Zap className="h-3 w-3" /> {runFlaps}
+                </div>
+              </div>
+            )}
+
+            {/* Overlays */}
+            {phase === "ready" && (
+              <Overlay>
+                <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.3em] text-white/60">
+                  <Sparkles className="h-3 w-3" /> Liquid flight
+                </div>
+                <h1 className="font-display text-5xl text-balance leading-none">
+                  Glass<span className="italic">bird</span>
+                </h1>
+                <p className="text-sm text-white/70 max-w-[18rem] text-balance">
+                  Tap, click or press space to flap. Glide through the prisms.
+                </p>
+                <div data-no-flap className="flex items-center gap-2 mt-1">
+                  {(Object.keys(THEMES) as ThemeKey[]).map((k) => (
+                    <button
+                      key={k}
+                      onClick={(e) => { e.stopPropagation(); setTheme(k); }}
+                      className={`h-7 w-7 rounded-full border transition ${theme === k ? "border-white scale-110" : "border-white/30 hover:border-white/60"}`}
+                      style={{ background: `linear-gradient(135deg, ${THEMES[k].swatch.join(", ")})` }}
+                      aria-label={THEMES[k].label}
+                      title={THEMES[k].label}
+                    />
+                  ))}
+                </div>
+                <button data-no-flap onClick={(e) => { e.stopPropagation(); flap(); }} className="mt-2 glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform">
+                  Begin flight
+                </button>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 mt-1">
+                  space · tap · click
+                </div>
+              </Overlay>
+            )}
+
+            {phase === "paused" && (
+              <Overlay>
+                <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">Paused</div>
+                <h2 className="font-display text-4xl">Take a breath</h2>
+                <button data-no-flap onClick={(e) => { e.stopPropagation(); togglePause(); }} className="mt-1 glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform inline-flex items-center gap-2">
+                  <Play className="h-4 w-4" /> Resume
+                </button>
+              </Overlay>
+            )}
+
+            {phase === "dead" && (
+              <Overlay>
+                <div className={`text-[10px] uppercase tracking-[0.3em] bg-gradient-to-r ${medal.color} bg-clip-text text-transparent font-semibold`}>
+                  {medal.label}
+                </div>
+                <div className="flex items-end gap-6">
+                  <div className="flex flex-col items-center">
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Score</span>
+                    <span className="font-display text-5xl leading-none">{score}</span>
+                  </div>
+                  <div className="h-10 w-px bg-white/15" />
+                  <div className="flex flex-col items-center">
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Best</span>
+                    <span className="font-display text-3xl leading-none text-white/80">{best}</span>
+                  </div>
+                </div>
+                <div className="flex gap-3 text-[10px] uppercase tracking-[0.2em] text-white/50">
+                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {fmtTime(runMs)}</span>
+                  <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> {runFlaps} flaps</span>
+                </div>
+                {score > 0 && score === best && (
+                  <div className="text-[11px] uppercase tracking-[0.25em] text-amber-300 flex items-center gap-1">
+                    <Zap className="h-3 w-3" /> New best
+                  </div>
+                )}
+                <button data-no-flap onClick={(e) => { e.stopPropagation(); flap(); }} className="mt-1 glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform">
+                  Fly again
+                </button>
+              </Overlay>
+            )}
           </div>
 
-          {/* Top-right in-game controls */}
-          {(phase === "playing" || phase === "paused") && (
-            <div data-no-flap className="absolute top-5 right-5 flex gap-2">
-              <button
-                onClick={togglePause}
-                className="glass rounded-full h-9 w-9 grid place-items-center hover:scale-105 transition"
-                aria-label="Pause"
-                title="Pause (P)"
-              >
-                {phase === "paused" ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-              </button>
-              <button
-                onClick={reset}
-                className="glass rounded-full h-9 w-9 grid place-items-center hover:scale-105 transition"
-                aria-label="Restart"
-                title="Restart (R)"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-
-          {/* Best chip */}
-          <div className="pointer-events-none absolute top-5 left-5">
-            <div className="glass rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/70 flex items-center gap-1">
-              <Trophy className="h-3 w-3" /> {best}
-            </div>
-          </div>
-
-          {/* Overlays */}
-          {phase === "ready" && (
-            <Overlay>
-              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.3em] text-white/60">
-                <Sparkles className="h-3 w-3" /> Liquid flight
-              </div>
-              <h1 className="font-display text-5xl text-balance leading-none">
-                Glass<span className="italic">bird</span>
-              </h1>
-              <p className="text-sm text-white/70 max-w-[18rem] text-balance">
-                Tap, click or press space to flap. Glide through the prisms.
-              </p>
-              <div data-no-flap className="flex items-center gap-2 mt-1">
-                {(Object.keys(THEMES) as ThemeKey[]).map((k) => (
-                  <button
-                    key={k}
-                    onClick={(e) => { e.stopPropagation(); setTheme(k); }}
-                    className={`h-7 w-7 rounded-full border transition ${theme === k ? "border-white scale-110" : "border-white/30 hover:border-white/60"}`}
-                    style={{ background: `linear-gradient(135deg, ${THEMES[k].swatch.join(", ")})` }}
-                    aria-label={THEMES[k].label}
-                    title={THEMES[k].label}
-                  />
-                ))}
-              </div>
-              <button data-no-flap onClick={(e) => { e.stopPropagation(); flap(); }} className="mt-2 glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform">
-                Begin flight
-              </button>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 mt-1">
-                space · tap · click
-              </div>
-            </Overlay>
-          )}
-
-          {phase === "paused" && (
-            <Overlay>
-              <div className="text-[10px] uppercase tracking-[0.3em] text-white/60">Paused</div>
-              <h2 className="font-display text-4xl">Take a breath</h2>
-              <button data-no-flap onClick={(e) => { e.stopPropagation(); togglePause(); }} className="mt-1 glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform inline-flex items-center gap-2">
-                <Play className="h-4 w-4" /> Resume
-              </button>
-            </Overlay>
-          )}
-
-          {phase === "dead" && (
-            <Overlay>
-              <div className={`text-[10px] uppercase tracking-[0.3em] bg-gradient-to-r ${medal.color} bg-clip-text text-transparent font-semibold`}>
-                {medal.label}
-              </div>
-              <div className="flex items-end gap-6">
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Score</span>
-                  <span className="font-display text-5xl leading-none">{score}</span>
-                </div>
-                <div className="h-10 w-px bg-white/15" />
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/50">Best</span>
-                  <span className="font-display text-3xl leading-none text-white/80">{best}</span>
-                </div>
-              </div>
-              {score > 0 && score === best && (
-                <div className="text-[11px] uppercase tracking-[0.25em] text-amber-300 flex items-center gap-1">
-                  <Zap className="h-3 w-3" /> New best
-                </div>
-              )}
-              <button data-no-flap onClick={(e) => { e.stopPropagation(); flap(); }} className="mt-1 glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform">
-                Fly again
-              </button>
-            </Overlay>
+          {/* Right rail */}
+          {!focusMode && (
+            <aside className="hidden lg:flex w-full max-w-[260px] flex-col gap-3 self-stretch">
+              <Panel title="Achievements" icon={<Award className="h-3 w-3" />}>
+                <Achievement label="First flap" unlocked={totalFlaps >= 1} hint="Press space" />
+                <Achievement label="Bronze medal" unlocked={best >= 3} hint="Score 3" />
+                <Achievement label="Silver medal" unlocked={best >= 10} hint="Score 10" />
+                <Achievement label="Gold medal" unlocked={best >= 20} hint="Score 20" />
+                <Achievement label="Prism rank" unlocked={best >= 40} hint="Score 40" />
+                <Achievement label="Marathoner" unlocked={games >= 25} hint="25 runs" />
+              </Panel>
+              <Panel title="Shortcuts" icon={<Keyboard className="h-3 w-3" />}>
+                <Key k="Space" v="Flap" />
+                <Key k="P" v="Pause" />
+                <Key k="R" v="Restart" />
+                <Key k="M" v="Mute" />
+                <Key k="F" v="Fullscreen" />
+                <Key k="Z" v="Focus mode" />
+              </Panel>
+              <Panel title="Tip" icon={<Sparkles className="h-3 w-3" />}>
+                <p className="text-xs text-white/70 leading-relaxed">
+                  Short, rhythmic taps beat panic mashing. Aim for the centre of each prism gap and let gravity do the rest.
+                </p>
+              </Panel>
+            </aside>
           )}
         </div>
 
-        {/* Stats strip */}
-        <div className="w-full max-w-[480px] grid grid-cols-3 gap-2">
-          <Stat label="Best" value={best} />
-          <Stat label="Games" value={games} />
-          <Stat label="Flaps" value={totalFlaps} />
-        </div>
+        {/* Stats strip (mobile/small) */}
+        {!focusMode && (
+          <div className="w-full max-w-[480px] grid grid-cols-3 gap-2 lg:hidden">
+            <Stat label="Best" value={best} />
+            <Stat label="Games" value={games} />
+            <Stat label="Flaps" value={totalFlaps} />
+          </div>
+        )}
 
-        <footer className="text-[10px] uppercase tracking-[0.25em] text-white/40">
-          space flap · P pause · M mute · R reset
-        </footer>
+        {!focusMode && (
+          <footer className="text-[10px] uppercase tracking-[0.25em] text-white/40 text-center">
+            space flap · P pause · M mute · R reset · F fullscreen · Z focus
+          </footer>
+        )}
       </div>
+
 
       {/* Settings drawer */}
       {settingsOpen && (
