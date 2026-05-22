@@ -190,6 +190,7 @@ export function FlappyGame() {
     s.t = 0; s.shake = 0; s.flash = 0;
     s.phase = "ready";
     setScore(0); setPhase("ready");
+    setRunFlaps(0); setRunStart(null); setRunMs(0);
   }, []);
 
   const flap = useCallback(() => {
@@ -198,10 +199,12 @@ export function FlappyGame() {
     if (s.phase === "ready") {
       s.phase = "playing";
       setPhase("playing");
+      setRunStart(performance.now());
     }
     if (s.phase === "dead") { reset(); return; }
     s.bird.vy = s.diff.flap;
     sfxRef.current.flap();
+    setRunFlaps((f) => f + 1);
     setTotalFlaps((f) => { const n = f + 1; localStorage.setItem("glassbird:flaps", String(n)); return n; });
     for (let i = 0; i < 10; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -221,6 +224,17 @@ export function FlappyGame() {
     const s = stateRef.current;
     if (s.phase === "playing") { s.phase = "paused"; setPhase("paused"); }
     else if (s.phase === "paused") { s.phase = "playing"; setPhase("playing"); }
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    const el = wrapRef.current?.parentElement?.parentElement; // main wrapper
+    try {
+      if (!document.fullscreenElement) {
+        await (el || document.documentElement).requestFullscreen?.();
+      } else {
+        await document.exitFullscreen?.();
+      }
+    } catch { /* noop */ }
   }, []);
 
   // Keyboard
