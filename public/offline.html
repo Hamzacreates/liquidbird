@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Glassbird — Offline</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/favicon.ico" />
+    <style>
+      :root { color-scheme: dark; }
+      html, body { margin: 0; height: 100%; font-family: Inter, system-ui, sans-serif; background: radial-gradient(ellipse at top, #2a1f4d 0%, #1a1530 50%, #0c0a1c 100%); color: #f5f3ff; }
+      .wrap { min-height: 100%; display: grid; place-items: center; padding: 24px; }
+      .card { max-width: 420px; text-align: center; padding: 40px 28px; border-radius: 28px; background: rgba(255,255,255,0.06); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 30px 80px rgba(0,0,0,0.45); }
+      h1 { font-family: 'Instrument Serif', serif; font-size: 44px; margin: 0 0 8px; font-weight: 400; letter-spacing: -0.02em; }
+      p { opacity: 0.75; margin: 0 0 24px; line-height: 1.5; }
+      img { width: 96px; height: 96px; border-radius: 24px; margin-bottom: 16px; }
+      button { background: linear-gradient(135deg, #8b5cf6, #ec4899); color: white; border: 0; padding: 12px 28px; border-radius: 999px; font-weight: 600; font-size: 15px; cursor: pointer; box-shadow: 0 10px 30px rgba(139,92,246,0.4); }
+      .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #fbbf24; margin-right: 6px; vertical-align: middle; animation: pulse 1.4s ease-in-out infinite; }
+      @keyframes pulse { 0%,100% { opacity: 0.4 } 50% { opacity: 1 } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <img src="/icons/icon-192.png" alt="Glassbird" width="96" height="96" />
+        <h1>You're offline</h1>
+        <p><span class="dot"></span>No connection — but Glassbird should still load from cache. Try again.</p>
+        <button onclick="location.reload()">Retry</button>
+      </div>
+    </div>
+  </body>
+</html>
