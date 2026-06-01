@@ -444,13 +444,27 @@ export function FlappyGame() {
 
       for (const p of s.particles) {
         const a = 1 - p.life / p.max;
-        ctx.fillStyle = `hsla(${p.hue}, 90%, 75%, ${a * 0.9})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * (0.5 + a * 0.5), 0, Math.PI * 2);
-        ctx.fill();
+        if (p.kind === "ribbon") {
+          ctx.strokeStyle = `hsla(${p.hue}, 90%, 75%, ${a * 0.8})`;
+          ctx.lineWidth = p.size;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + p.vx * 0.04, p.y + p.vy * 0.04);
+          ctx.stroke();
+        } else if (p.kind === "smoke") {
+          ctx.fillStyle = `hsla(${p.hue}, 40%, 80%, ${a * 0.4})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * (1 + (1 - a) * 1.5), 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = `hsla(${p.hue}, 90%, 75%, ${a * 0.9})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * (0.5 + a * 0.5), 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
-      drawBird(ctx, s.bird.y, s.bird.rot, s.t, TH.bird, TH.glow);
+      drawBird(ctx, s.bird.y, s.bird.rot, s.t, TH.bird, TH.glow, s.birdStyle);
 
       if (s.phase === "paused") {
         ctx.fillStyle = "rgba(10,10,30,0.45)";
