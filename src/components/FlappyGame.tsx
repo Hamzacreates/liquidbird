@@ -153,6 +153,7 @@ export function FlappyGame() {
     flash: 0,
     diff: DIFFICULTY.normal,
     theme: THEMES.aurora,
+    birdStyle: "classic" as BirdStyle,
   });
 
   const theTheme = useMemo(() => THEMES[theme], [theme]);
