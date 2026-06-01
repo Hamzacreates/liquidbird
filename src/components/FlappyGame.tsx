@@ -749,7 +749,7 @@ export function FlappyGame() {
       {settingsOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSettingsOpen(false)}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md glass-strong rounded-3xl p-6 animate-in slide-in-from-bottom-6 duration-300">
+          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md glass-strong rounded-3xl p-6 animate-in slide-in-from-bottom-6 duration-300 max-h-[88vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display text-2xl">Settings</h3>
               <button onClick={() => setSettingsOpen(false)} className="h-8 w-8 grid place-items-center rounded-full glass hover:scale-105 transition">
