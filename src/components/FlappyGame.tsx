@@ -164,16 +164,24 @@ export function FlappyGame() {
     const f = Number(localStorage.getItem("glassbird:flaps") || 0);
     const t = (localStorage.getItem("glassbird:theme") as ThemeKey) || "aurora";
     const d = (localStorage.getItem("glassbird:diff") as Difficulty) || "normal";
+    const bs = (localStorage.getItem("glassbird:bird") as BirdStyle) || "classic";
+    const ts = (localStorage.getItem("glassbird:trail") as TrailStyle) || "sparkle";
     const s = localStorage.getItem("glassbird:sound");
+    const ta = localStorage.getItem("glassbird:terms");
     stateRef.current.best = b;
     setBest(b); setGames(g); setTotalFlaps(f);
     if (THEMES[t]) setTheme(t);
     if (DIFFICULTY[d]) setDifficulty(d);
+    if (BIRD_STYLES.some((x) => x.key === bs)) setBirdStyle(bs);
+    if (TRAIL_STYLES.some((x) => x.key === ts)) setTrailStyle(ts);
     if (s !== null) setSoundOn(s === "1");
+    setTermsAccepted(ta === "1");
   }, []);
 
   useEffect(() => { localStorage.setItem("glassbird:theme", theme); stateRef.current.theme = THEMES[theme]; }, [theme]);
   useEffect(() => { localStorage.setItem("glassbird:diff", difficulty); stateRef.current.diff = DIFFICULTY[difficulty]; }, [difficulty]);
+  useEffect(() => { localStorage.setItem("glassbird:bird", birdStyle); }, [birdStyle]);
+  useEffect(() => { localStorage.setItem("glassbird:trail", trailStyle); }, [trailStyle]);
   useEffect(() => { localStorage.setItem("glassbird:sound", soundOn ? "1" : "0"); sfxRef.current.enabled = soundOn; }, [soundOn]);
 
   const reset = useCallback(() => {
