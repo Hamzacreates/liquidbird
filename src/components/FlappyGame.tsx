@@ -117,11 +117,15 @@ export function FlappyGame() {
   // Persistent settings
   const [theme, setTheme] = useState<ThemeKey>("aurora");
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [birdStyle, setBirdStyle] = useState<BirdStyle>("classic");
+  const [trailStyle, setTrailStyle] = useState<TrailStyle>("sparkle");
   const [soundOn, setSoundOn] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [termsAccepted, setTermsAccepted] = useState(true); // assume true to avoid SSR flash; verified in effect
+  const [downloading, setDownloading] = useState(false);
 
   // Stats
   const [best, setBest] = useState(0);
