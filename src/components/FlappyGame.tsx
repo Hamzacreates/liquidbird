@@ -985,7 +985,7 @@ function drawGround(ctx: CanvasRenderingContext2D, t: number) {
   ctx.restore();
 }
 
-function drawBird(ctx: CanvasRenderingContext2D, y: number, rot: number, t: number, palette: [string, string, string], glow: string) {
+function drawBird(ctx: CanvasRenderingContext2D, y: number, rot: number, t: number, palette: [string, string, string], glow: string, style: BirdStyle = "classic") {
   ctx.save();
   ctx.translate(BIRD_X, y);
   ctx.rotate(rot);
@@ -1004,7 +1004,25 @@ function drawBird(ctx: CanvasRenderingContext2D, y: number, rot: number, t: numb
   body.addColorStop(1, palette[2]);
   ctx.fillStyle = body;
   ctx.beginPath();
-  ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
+  if (style === "geo") {
+    const s = BIRD_R;
+    ctx.moveTo(s, 0);
+    for (let i = 1; i < 6; i++) {
+      const a = (i * Math.PI * 2) / 6;
+      ctx.lineTo(Math.cos(a) * s, Math.sin(a) * s);
+    }
+    ctx.closePath();
+  } else if (style === "prism") {
+    const s = BIRD_R;
+    ctx.moveTo(0, -s); ctx.lineTo(s, 0); ctx.lineTo(0, s); ctx.lineTo(-s, 0); ctx.closePath();
+  } else if (style === "drop") {
+    ctx.moveTo(BIRD_R, 0);
+    ctx.bezierCurveTo(BIRD_R, BIRD_R, -BIRD_R, BIRD_R, -BIRD_R, 0);
+    ctx.bezierCurveTo(-BIRD_R, -BIRD_R * 1.2, BIRD_R, -BIRD_R * 1.2, BIRD_R, 0);
+    ctx.closePath();
+  } else {
+    ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
+  }
   ctx.fill();
 
   ctx.strokeStyle = "rgba(255,255,255,0.6)";
