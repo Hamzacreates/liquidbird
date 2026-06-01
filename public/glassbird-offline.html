@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Glassbird — Liquid Flappy (Offline)</title>
+<meta name="theme-color" content="#1a1530" />
+<style>
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;color:#fff;
+    background:radial-gradient(1200px 800px at 20% 10%,rgba(180,100,255,0.45),transparent 60%),
+               radial-gradient(1000px 700px at 90% 90%,rgba(80,180,255,0.45),transparent 60%),
+               #14102a;}
+  .wrap{position:relative;min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;gap:10px}
+  .glass{background:rgba(255,255,255,0.08);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border:1px solid rgba(255,255,255,0.18);box-shadow:0 8px 32px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.25);border-radius:18px}
+  .glass-strong{background:rgba(255,255,255,0.14);backdrop-filter:blur(40px) saturate(200%);-webkit-backdrop-filter:blur(40px) saturate(200%);border:1px solid rgba(255,255,255,0.25);box-shadow:0 20px 60px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.3);border-radius:22px}
+  header{width:100%;max-width:520px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  header .pill{padding:8px 14px;font-size:13px;display:flex;align-items:center;gap:8px;border-radius:999px}
+  header .dot{width:8px;height:8px;border-radius:50%;background:#7ee8ff;box-shadow:0 0 12px #7ee8ff;animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .frame{position:relative;width:100%;max-width:480px;aspect-ratio:480/720;border-radius:32px;overflow:hidden;cursor:pointer;user-select:none;touch-action:none}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .hud-score{position:absolute;top:18px;left:50%;transform:translateX(-50%);padding:6px 22px;font-family:"Instrument Serif",Georgia,serif;font-size:38px;line-height:1;border-radius:999px}
+  .hud-best{position:absolute;top:18px;left:18px;padding:4px 12px;font-size:10px;letter-spacing:.18em;text-transform:uppercase;border-radius:999px;color:rgba(255,255,255,0.75)}
+  .hud-ctrls{position:absolute;top:14px;right:14px;display:flex;gap:8px}
+  .ico{width:34px;height:34px;display:grid;place-items:center;border-radius:999px;cursor:pointer;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);color:#fff;font-size:14px}
+  .ico:hover{background:rgba(255,255,255,0.18)}
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{padding:26px 28px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;max-width:340px}
+  .card h1{font-family:"Instrument Serif",Georgia,serif;font-size:44px;margin:0;line-height:1}
+  .card .kicker{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,0.6)}
+  .card p{margin:0;color:rgba(255,255,255,0.7);font-size:13px}
+  .btn{padding:12px 22px;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.14);color:#fff}
+  .btn:hover{transform:scale(1.03)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .sw{width:28px;height:28px;border-radius:999px;border:1px solid rgba(255,255,255,0.3);cursor:pointer}
+  .sw.active{outline:2px solid #fff;transform:scale(1.1)}
+  footer{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,0.45);text-align:center}
+  /* Settings */
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .panel{width:100%;max-width:420px;padding:22px}
+  .panel h3{margin:0 0 14px;font-family:"Instrument Serif",Georgia,serif;font-size:24px}
+  .lbl{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:rgba(255,255,255,0.55);margin:10px 0 6px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .opt{padding:8px 10px;border-radius:12px;font-size:12px;cursor:pointer;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;text-align:center}
+  .opt.active{background:rgba(255,255,255,0.18);border-color:rgba(255,255,255,0.7)}
+  .themeOpt{height:50px;border-radius:14px;cursor:pointer;border:1px solid rgba(255,255,255,0.15)}
+  .themeOpt.active{border-color:#fff}
+  .close{position:absolute;top:14px;right:14px}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <header>
+    <div class="pill glass"><span class="dot"></span><span style="font-weight:500">Glassbird</span><span style="opacity:.5;font-size:11px">· Offline</span></div>
+    <div style="display:flex;gap:6px">
+      <button class="ico" id="muteBtn" title="Mute (M)">🔊</button>
+      <button class="ico" id="setBtn" title="Settings">⚙</button>
+    </div>
+  </header>
+
+  <div class="frame glass-strong" id="frame">
+    <canvas id="cv"></canvas>
+    <div class="hud-best glass" id="bestHud">🏆 0</div>
+    <div class="hud-score glass" id="scoreHud">0</div>
+    <div class="hud-ctrls" id="gameCtrls" style="display:none">
+      <button class="ico" id="pauseBtn">⏸</button>
+      <button class="ico" id="resetBtn">↺</button>
+    </div>
+    <div class="overlay" id="overlay">
+      <div class="card glass-strong">
+        <div class="kicker">✦ Liquid flight</div>
+        <h1>Glass<i>bird</i></h1>
+        <p>Tap, click or press space to flap. Glide through the prisms.</p>
+        <button class="btn" id="startBtn">Begin flight</button>
+        <div class="kicker">space · tap · click</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>© <span id="yr"></span> Hamza · Made by Hamza · All rights reserved · Offline build</footer>
+</div>
+
+<div class="scrim" id="setScrim" style="display:none">
+  <div class="panel glass-strong" style="position:relative">
+    <button class="ico close" id="setClose">✕</button>
+    <h3>Settings</h3>
+    <div class="lbl">Theme</div>
+    <div class="grid4" id="themeGrid"></div>
+    <div class="lbl">Difficulty</div>
+    <div class="grid3" id="diffGrid"></div>
+    <div class="lbl">Bird style</div>
+    <div class="grid4" id="birdGrid"></div>
+    <div class="lbl">Trail</div>
+    <div class="grid4" id="trailGrid"></div>
+  </div>
+</div>
+
+<script>
+document.getElementById('yr').textContent = new Date().getFullYear();
+const WORLD_W=480, WORLD_H=720, BIRD_R=18, BIRD_X=WORLD_W*0.3, GROUND_H=80, MAX_FALL=900;
+
+const DIFFICULTY={
+  easy:   {gravity:1300,flap:-460,speed:135,gap:240,interval:1.9,label:"Easy"},
+  chill:  {gravity:1500,flap:-480,speed:150,gap:220,interval:1.75,label:"Chill"},
+  normal: {gravity:1800,flap:-520,speed:185,gap:190,interval:1.55,label:"Normal"},
+  hard:   {gravity:2100,flap:-560,speed:230,gap:160,interval:1.30,label:"Hard"},
+  insane: {gravity:2400,flap:-600,speed:280,gap:140,interval:1.05,label:"Insane"},
+  nightmare:{gravity:2700,flap:-630,speed:330,gap:125,interval:0.85,label:"Nightmare"},
+};
+const THEMES={
+  aurora:{label:"Aurora",sky:["#2a1b4a","#3a4d8f","#6fb6c9"],bird:["rgba(255,255,255,0.95)","rgba(255,200,240,0.85)","rgba(140,120,255,0.7)"],glow:"rgba(255,180,240,0.7)",pipe:"200",orb:200,swatch:["#2a1b4a","#6fb6c9","#ff9ff3"]},
+  sunset:{label:"Sunset",sky:["#2d0e3a","#a83264","#ffb88c"],bird:["rgba(255,255,255,0.95)","rgba(255,210,160,0.85)","rgba(255,90,140,0.7)"],glow:"rgba(255,160,120,0.75)",pipe:"30",orb:20,swatch:["#2d0e3a","#ff6b6b","#ffb88c"]},
+  mint:{label:"Mint",sky:["#062b2a","#0f6e6b","#7dd3c0"],bird:["rgba(255,255,255,0.95)","rgba(180,255,230,0.85)","rgba(80,220,200,0.7)"],glow:"rgba(140,255,220,0.75)",pipe:"170",orb:160,swatch:["#062b2a","#7dd3c0","#a7f3d0"]},
+  noir:{label:"Noir",sky:["#0a0a14","#1a1a2e","#2d2d44"],bird:["rgba(255,255,255,0.95)","rgba(220,220,240,0.8)","rgba(120,120,180,0.6)"],glow:"rgba(255,255,255,0.6)",pipe:"0",orb:260,swatch:["#0a0a14","#2d2d44","#dcdcef"]},
+  ember:{label:"Ember",sky:["#1a0606","#5a1a14","#ff7a3a"],bird:["rgba(255,255,255,0.95)","rgba(255,170,120,0.85)","rgba(255,80,40,0.7)"],glow:"rgba(255,140,80,0.85)",pipe:"15",orb:10,swatch:["#1a0606","#ff7a3a","#ffd166"]},
+  ocean:{label:"Ocean",sky:["#031a3a","#0a4a8a","#5fc7e0"],bird:["rgba(255,255,255,0.95)","rgba(170,220,255,0.85)","rgba(60,140,220,0.7)"],glow:"rgba(120,200,255,0.8)",pipe:"210",orb:210,swatch:["#031a3a","#0a4a8a","#5fc7e0"]},
+  candy:{label:"Candy",sky:["#3a0a3a","#c83a9a","#ffc8e8"],bird:["rgba(255,255,255,0.95)","rgba(255,200,240,0.85)","rgba(255,120,200,0.7)"],glow:"rgba(255,180,230,0.85)",pipe:"320",orb:320,swatch:["#3a0a3a","#ff7ac6","#ffc8e8"]},
+  forest:{label:"Forest",sky:["#04140a","#0e4a2a","#7acf8a"],bird:["rgba(255,255,255,0.95)","rgba(200,255,210,0.85)","rgba(80,180,110,0.7)"],glow:"rgba(160,255,180,0.8)",pipe:"130",orb:130,swatch:["#04140a","#0e4a2a","#7acf8a"]},
+};
+const BIRD_STYLES=["classic","geo","prism","drop"];
+const TRAIL_STYLES=["sparkle","ribbon","smoke","none"];
+
+let theme=localStorage.getItem("glassbird:theme")||"aurora"; if(!THEMES[theme])theme="aurora";
+let difficulty=localStorage.getItem("glassbird:diff")||"normal"; if(!DIFFICULTY[difficulty])difficulty="normal";
+let birdStyle=localStorage.getItem("glassbird:bird")||"classic"; if(!BIRD_STYLES.includes(birdStyle))birdStyle="classic";
+let trailStyle=localStorage.getItem("glassbird:trail")||"sparkle"; if(!TRAIL_STYLES.includes(trailStyle))trailStyle="sparkle";
+let soundOn=localStorage.getItem("glassbird:sound")!=="0";
+let best=+(localStorage.getItem("glassbird:best")||0);
+
+// SFX
+let ac=null;
+function ensureAC(){if(!ac){try{ac=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(ac&&ac.state==="suspended")ac.resume();return ac;}
+function blip(f,d=0.08,t="sine",v=0.08){if(!soundOn)return;const c=ensureAC();if(!c)return;const o=c.createOscillator(),g=c.createGain();o.type=t;o.frequency.setValueAtTime(f,c.currentTime);g.gain.setValueAtTime(v,c.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+d);o.connect(g).connect(c.destination);o.start();o.stop(c.currentTime+d);}
+const sfx={flap:()=>blip(520,0.09,"triangle",0.06),score:()=>{blip(880,0.07,"sine",0.07);setTimeout(()=>blip(1320,0.08,"sine",0.06),60);},crash:()=>{if(!soundOn)return;const c=ensureAC();if(!c)return;const o=c.createOscillator(),g=c.createGain();o.type="sawtooth";o.frequency.setValueAtTime(220,c.currentTime);o.frequency.exponentialRampToValueAtTime(60,c.currentTime+0.35);g.gain.setValueAtTime(0.18,c.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+0.4);o.connect(g).connect(c.destination);o.start();o.stop(c.currentTime+0.4);}};
+
+const canvas=document.getElementById('cv'), ctx=canvas.getContext('2d'), frame=document.getElementById('frame');
+function resize(){const r=frame.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);canvas.width=r.width*dpr;canvas.height=r.height*dpr;canvas.style.width=r.width+"px";canvas.style.height=r.height+"px";canvas._dpr=dpr;canvas._w=r.width;canvas._h=r.height;}
+resize();new ResizeObserver(resize).observe(frame);
+
+const state={phase:"ready",bird:{y:WORLD_H/2,vy:0,rot:0},pipes:[],particles:[],spawn:0,pid:0,score:0,t:0,shake:0,flash:0};
+
+const overlay=document.getElementById('overlay'),scoreHud=document.getElementById('scoreHud'),bestHud=document.getElementById('bestHud'),gameCtrls=document.getElementById('gameCtrls');
+bestHud.textContent="🏆 "+best;
+
+function showOverlay(html){overlay.innerHTML='<div class="card glass-strong">'+html+'</div>';overlay.style.display='flex';}
+function hideOverlay(){overlay.style.display='none';}
+
+function medal(s){if(s>=40)return"Prism";if(s>=20)return"Gold";if(s>=10)return"Silver";if(s>=3)return"Bronze";return"Rookie";}
+
+function reset(){state.bird={y:WORLD_H/2,vy:0,rot:0};state.pipes=[];state.particles=[];state.spawn=0;state.pid=0;state.score=0;state.t=0;state.shake=0;state.flash=0;state.phase="ready";scoreHud.textContent=0;gameCtrls.style.display='none';
+  showOverlay('<div class="kicker">✦ Liquid flight</div><h1>Glass<i>bird</i></h1><p>Tap, click or press space to flap.</p><button class="btn" id="startBtn">Begin flight</button><div class="kicker">space · tap · click</div>');
+  document.getElementById('startBtn').onclick=(e)=>{e.stopPropagation();flap();};
+}
+
+function flap(){const D=DIFFICULTY[difficulty];if(state.phase==="paused")return;if(state.phase==="ready"){state.phase="playing";hideOverlay();gameCtrls.style.display='flex';}if(state.phase==="dead"){reset();return;}state.bird.vy=D.flap;sfx.flap();
+  const cnt=trailStyle==="none"?0:(trailStyle==="ribbon"?6:trailStyle==="smoke"?14:10);
+  for(let i=0;i<cnt;i++){const a=Math.random()*Math.PI*2,sp=60+Math.random()*120;state.particles.push({x:BIRD_X-6,y:state.bird.y+6,vx:Math.cos(a)*sp*0.4-40,vy:Math.sin(a)*sp*0.4+30,life:0,max:0.5+Math.random()*0.5,size:trailStyle==="smoke"?4+Math.random()*4:2+Math.random()*3,hue:THEMES[theme].orb+Math.random()*80-40,kind:trailStyle});}
+}
+function togglePause(){if(state.phase==="playing"){state.phase="paused";showOverlay('<div class="kicker">Paused</div><h1>Take a breath</h1><button class="btn" id="resBtn">Resume</button>');document.getElementById('resBtn').onclick=(e)=>{e.stopPropagation();togglePause();};gameCtrls.children[0].textContent="▶";}
+  else if(state.phase==="paused"){state.phase="playing";hideOverlay();gameCtrls.children[0].textContent="⏸";}}
+
+function die(){if(state.phase!=="playing")return;state.phase="dead";state.shake=14;state.flash=1;sfx.crash();
+  for(let i=0;i<60;i++){const a=Math.random()*Math.PI*2,sp=80+Math.random()*280;state.particles.push({x:BIRD_X,y:state.bird.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:0,max:0.8+Math.random()*0.6,size:2+Math.random()*4,hue:THEMES[theme].orb+Math.random()*80,kind:"sparkle"});}
+  if(state.score>best){best=state.score;localStorage.setItem("glassbird:best",best);bestHud.textContent="🏆 "+best;}
+  const s=state.score;
+  showOverlay('<div class="kicker">'+medal(s)+'</div><div style="display:flex;align-items:flex-end;gap:24px"><div><div class="kicker">Score</div><div style="font-family:Georgia,serif;font-size:46px;line-height:1">'+s+'</div></div><div style="width:1px;height:38px;background:rgba(255,255,255,0.2)"></div><div><div class="kicker">Best</div><div style="font-family:Georgia,serif;font-size:30px;line-height:1;opacity:.8">'+best+'</div></div></div><button class="btn" id="againBtn">Fly again</button>');
+  document.getElementById('againBtn').onclick=(e)=>{e.stopPropagation();flap();};
+  gameCtrls.style.display='none';
+}
+
+let last=performance.now();
+function tick(now){const dt=Math.min(0.033,(now-last)/1000);last=now;const D=DIFFICULTY[difficulty],TH=THEMES[theme];state.t+=dt;
+  if(state.phase==="ready"){state.bird.y=WORLD_H/2+Math.sin(state.t*2.4)*12;state.bird.rot=Math.sin(state.t*2.4)*0.15;}
+  else if(state.phase==="playing"){state.bird.vy+=D.gravity*dt;if(state.bird.vy>MAX_FALL)state.bird.vy=MAX_FALL;state.bird.y+=state.bird.vy*dt;const tgt=Math.max(-0.5,Math.min(1.2,state.bird.vy/600));state.bird.rot+=(tgt-state.bird.rot)*Math.min(1,dt*8);
+    state.spawn+=dt;if(state.spawn>=D.interval){state.spawn=0;const m=90;const gapY=m+Math.random()*(WORLD_H-GROUND_H-m*2-D.gap);state.pipes.push({x:WORLD_W+20,gapY,passed:false,id:++state.pid});}
+    for(const p of state.pipes){p.x-=D.speed*dt;if(!p.passed&&p.x+84<BIRD_X-BIRD_R){p.passed=true;state.score+=1;scoreHud.textContent=state.score;sfx.score();}}
+    state.pipes=state.pipes.filter(p=>p.x>-104);
+    if(state.bird.y+BIRD_R>WORLD_H-GROUND_H||state.bird.y-BIRD_R<0){state.bird.y=Math.min(WORLD_H-GROUND_H-BIRD_R,Math.max(BIRD_R,state.bird.y));die();}
+    else{for(const p of state.pipes){if(BIRD_X+BIRD_R>p.x&&BIRD_X-BIRD_R<p.x+84){if(state.bird.y-BIRD_R<p.gapY||state.bird.y+BIRD_R>p.gapY+D.gap){die();break;}}}}
+  } else if(state.phase==="dead"){state.bird.vy+=D.gravity*dt;state.bird.y+=state.bird.vy*dt;state.bird.rot+=dt*4;if(state.bird.y+BIRD_R>WORLD_H-GROUND_H){state.bird.y=WORLD_H-GROUND_H-BIRD_R;state.bird.vy=0;}}
+  for(const p of state.particles){p.life+=dt;p.vy+=(p.kind==="smoke"?60:200)*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;}
+  state.particles=state.particles.filter(p=>p.life<p.max);
+  state.shake*=Math.pow(0.001,dt);state.flash*=Math.pow(0.02,dt);
+  draw(TH,D);requestAnimationFrame(tick);
+}
+
+function draw(TH,D){const W=canvas._w,H=canvas._h,dpr=canvas._dpr;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.scale(dpr,dpr);
+  const sc=Math.min(W/WORLD_W,H/WORLD_H);const ox=(W-WORLD_W*sc)/2+(Math.random()-0.5)*state.shake;const oy=(H-WORLD_H*sc)/2+(Math.random()-0.5)*state.shake;ctx.translate(ox,oy);ctx.scale(sc,sc);
+  const sky=ctx.createLinearGradient(0,0,0,WORLD_H);sky.addColorStop(0,TH.sky[0]);sky.addColorStop(0.5,TH.sky[1]);sky.addColorStop(1,TH.sky[2]);ctx.fillStyle=sky;ctx.fillRect(0,0,WORLD_W,WORLD_H);
+  for(let i=0;i<5;i++){const px=((i*137-state.t*18)%(WORLD_W+200)+WORLD_W+200)%(WORLD_W+200)-100;const py=80+i*90+Math.sin(state.t*0.5+i)*20;const r=60+i*12;const g=ctx.createRadialGradient(px,py,0,px,py,r);g.addColorStop(0,`hsla(${TH.orb+i*30},80%,70%,0.35)`);g.addColorStop(1,`hsla(${TH.orb+80},80%,60%,0)`);ctx.fillStyle=g;ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fill();}
+  for(const p of state.pipes)pipe(p,D.gap,TH.pipe);
+  ground();
+  for(const p of state.particles){const a=1-p.life/p.max;if(p.kind==="ribbon"){ctx.strokeStyle=`hsla(${p.hue},90%,75%,${a*0.8})`;ctx.lineWidth=p.size;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+p.vx*0.04,p.y+p.vy*0.04);ctx.stroke();}else if(p.kind==="smoke"){ctx.fillStyle=`hsla(${p.hue},40%,80%,${a*0.4})`;ctx.beginPath();ctx.arc(p.x,p.y,p.size*(1+(1-a)*1.5),0,Math.PI*2);ctx.fill();}else{ctx.fillStyle=`hsla(${p.hue},90%,75%,${a*0.9})`;ctx.beginPath();ctx.arc(p.x,p.y,p.size*(0.5+a*0.5),0,Math.PI*2);ctx.fill();}}
+  bird(state.bird.y,state.bird.rot,state.t,TH);
+  if(state.phase==="paused"){ctx.fillStyle="rgba(10,10,30,0.45)";ctx.fillRect(0,0,WORLD_W,WORLD_H);}
+  if(state.flash>0.01){ctx.fillStyle=`rgba(255,255,255,${state.flash*0.6})`;ctx.fillRect(0,0,WORLD_W,WORLD_H);}
+}
+function rr(x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function pipe(p,gap,hue){const PW=84,topH=p.gapY,botY=p.gapY+gap,botH=WORLD_H-GROUND_H-botY;
+  const drw=(x,y,w,h)=>{const g=ctx.createLinearGradient(x,0,x+w,0);g.addColorStop(0,"rgba(255,255,255,0.05)");g.addColorStop(0.3,`hsla(${hue},80%,80%,0.22)`);g.addColorStop(0.7,`hsla(${hue},80%,70%,0.18)`);g.addColorStop(1,"rgba(255,255,255,0.05)");rr(x,y,w,h,14);ctx.fillStyle=g;ctx.fill();ctx.strokeStyle="rgba(255,255,255,0.35)";ctx.lineWidth=1.2;rr(x+0.5,y+0.5,w-1,h-1,13);ctx.stroke();};
+  if(topH>0)drw(p.x,0,PW,topH);if(botH>0)drw(p.x,botY,PW,botH);
+  ctx.save();ctx.shadowColor=`hsla(${hue},90%,75%,0.9)`;ctx.shadowBlur=18;ctx.fillStyle=`hsla(${hue},90%,85%,0.85)`;ctx.fillRect(p.x+4,p.gapY-3,PW-8,3);ctx.fillRect(p.x+4,p.gapY+gap,PW-8,3);ctx.restore();
+}
+function ground(){const y=WORLD_H-GROUND_H;const g=ctx.createLinearGradient(0,y,0,WORLD_H);g.addColorStop(0,"rgba(255,255,255,0.18)");g.addColorStop(1,"rgba(40,30,80,0.55)");ctx.fillStyle=g;ctx.fillRect(0,y,WORLD_W,GROUND_H);ctx.fillStyle="rgba(255,255,255,0.4)";ctx.fillRect(0,y,WORLD_W,1);}
+function bird(y,rot,t,TH){ctx.save();ctx.translate(BIRD_X,y);ctx.rotate(rot);
+  const g=ctx.createRadialGradient(0,0,4,0,0,36);g.addColorStop(0,TH.glow);g.addColorStop(1,"rgba(255,180,240,0)");ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,36,0,Math.PI*2);ctx.fill();
+  const body=ctx.createRadialGradient(-6,-8,2,0,0,BIRD_R+4);body.addColorStop(0,TH.bird[0]);body.addColorStop(0.4,TH.bird[1]);body.addColorStop(1,TH.bird[2]);ctx.fillStyle=body;ctx.beginPath();
+  if(birdStyle==="geo"){const s=BIRD_R;ctx.moveTo(s,0);for(let i=1;i<6;i++){const a=i*Math.PI*2/6;ctx.lineTo(Math.cos(a)*s,Math.sin(a)*s);}ctx.closePath();}
+  else if(birdStyle==="prism"){const s=BIRD_R;ctx.moveTo(0,-s);ctx.lineTo(s,0);ctx.lineTo(0,s);ctx.lineTo(-s,0);ctx.closePath();}
+  else if(birdStyle==="drop"){ctx.moveTo(BIRD_R,0);ctx.bezierCurveTo(BIRD_R,BIRD_R,-BIRD_R,BIRD_R,-BIRD_R,0);ctx.bezierCurveTo(-BIRD_R,-BIRD_R*1.2,BIRD_R,-BIRD_R*1.2,BIRD_R,0);ctx.closePath();}
+  else{ctx.arc(0,0,BIRD_R,0,Math.PI*2);}
+  ctx.fill();ctx.strokeStyle="rgba(255,255,255,0.6)";ctx.lineWidth=1.2;ctx.stroke();
+  ctx.fillStyle="rgba(255,255,255,0.9)";ctx.beginPath();ctx.ellipse(-6,-8,5,3,-0.5,0,Math.PI*2);ctx.fill();
+  const wing=Math.sin(t*18)*0.6;ctx.save();ctx.translate(-2,2);ctx.rotate(wing);ctx.fillStyle="rgba(255,255,255,0.55)";ctx.beginPath();ctx.ellipse(-6,4,10,5,0.3,0,Math.PI*2);ctx.fill();ctx.strokeStyle="rgba(255,255,255,0.7)";ctx.stroke();ctx.restore();
+  ctx.fillStyle="#1a1530";ctx.beginPath();ctx.arc(7,-3,2.2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="rgba(255,200,120,0.95)";ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(22,2);ctx.lineTo(14,4);ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+
+reset();requestAnimationFrame(tick);
+
+// Input
+frame.addEventListener('pointerdown',(e)=>{if(e.target.closest('.hud-ctrls')||e.target.closest('.card'))return;e.preventDefault();flap();});
+addEventListener('keydown',(e)=>{if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW'){e.preventDefault();flap();}else if(e.code==='KeyP'){togglePause();}else if(e.code==='KeyR'){reset();}else if(e.code==='KeyM'){soundOn=!soundOn;localStorage.setItem('glassbird:sound',soundOn?'1':'0');document.getElementById('muteBtn').textContent=soundOn?'🔊':'🔇';}});
+document.getElementById('pauseBtn').onclick=(e)=>{e.stopPropagation();togglePause();};
+document.getElementById('resetBtn').onclick=(e)=>{e.stopPropagation();reset();};
+document.getElementById('muteBtn').textContent=soundOn?'🔊':'🔇';
+document.getElementById('muteBtn').onclick=()=>{soundOn=!soundOn;localStorage.setItem('glassbird:sound',soundOn?'1':'0');document.getElementById('muteBtn').textContent=soundOn?'🔊':'🔇';};
+
+// Settings UI
+const setScrim=document.getElementById('setScrim');
+document.getElementById('setBtn').onclick=()=>{setScrim.style.display='flex';buildSettings();};
+document.getElementById('setClose').onclick=()=>{setScrim.style.display='none';};
+setScrim.addEventListener('click',(e)=>{if(e.target===setScrim)setScrim.style.display='none';});
+function buildSettings(){
+  const tg=document.getElementById('themeGrid');tg.innerHTML='';for(const k of Object.keys(THEMES)){const b=document.createElement('button');b.className='themeOpt'+(k===theme?' active':'');b.style.background='linear-gradient(135deg,'+THEMES[k].swatch.join(',')+')';b.title=THEMES[k].label;b.onclick=()=>{theme=k;localStorage.setItem('glassbird:theme',k);buildSettings();};tg.appendChild(b);}
+  const dg=document.getElementById('diffGrid');dg.innerHTML='';for(const k of Object.keys(DIFFICULTY)){const b=document.createElement('button');b.className='opt'+(k===difficulty?' active':'');b.textContent=DIFFICULTY[k].label;b.onclick=()=>{difficulty=k;localStorage.setItem('glassbird:diff',k);buildSettings();};dg.appendChild(b);}
+  const bg=document.getElementById('birdGrid');bg.innerHTML='';for(const k of BIRD_STYLES){const b=document.createElement('button');b.className='opt'+(k===birdStyle?' active':'');b.textContent=k;b.onclick=()=>{birdStyle=k;localStorage.setItem('glassbird:bird',k);buildSettings();};bg.appendChild(b);}
+  const trg=document.getElementById('trailGrid');trg.innerHTML='';for(const k of TRAIL_STYLES){const b=document.createElement('button');b.className='opt'+(k===trailStyle?' active':'');b.textContent=k;b.onclick=()=>{trailStyle=k;localStorage.setItem('glassbird:trail',k);buildSettings();};trg.appendChild(b);}
+}
+</script>
+</body>
+</html>
