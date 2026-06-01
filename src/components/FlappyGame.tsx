@@ -57,7 +57,7 @@ const TRAIL_STYLES: { key: TrailStyle; label: string }[] = [
 ];
 
 type Pipe = { x: number; gapY: number; passed: boolean; id: number };
-type Particle = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; hue: number };
+type Particle = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; hue: number; kind?: TrailStyle };
 
 // ---------- Audio ----------
 class SfxEngine {
