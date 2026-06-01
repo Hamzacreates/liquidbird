@@ -208,19 +208,22 @@ export function FlappyGame() {
     sfxRef.current.flap();
     setRunFlaps((f) => f + 1);
     setTotalFlaps((f) => { const n = f + 1; localStorage.setItem("glassbird:flaps", String(n)); return n; });
-    for (let i = 0; i < 10; i++) {
+    const tk = trailStyle;
+    const count = tk === "none" ? 0 : tk === "ribbon" ? 6 : tk === "smoke" ? 14 : 10;
+    for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 60 + Math.random() * 120;
       s.particles.push({
         x: BIRD_X - 6, y: s.bird.y + 6,
         vx: Math.cos(a) * sp * 0.4 - 40,
         vy: Math.sin(a) * sp * 0.4 + 30,
-        life: 0, max: 0.5 + Math.random() * 0.4,
-        size: 2 + Math.random() * 3,
+        life: 0, max: 0.5 + Math.random() * 0.5,
+        size: tk === "smoke" ? 4 + Math.random() * 4 : 2 + Math.random() * 3,
         hue: stateRef.current.theme.orb + Math.random() * 80 - 40,
+        kind: tk,
       });
     }
-  }, [reset]);
+  }, [reset, trailStyle]);
 
   const togglePause = useCallback(() => {
     const s = stateRef.current;
