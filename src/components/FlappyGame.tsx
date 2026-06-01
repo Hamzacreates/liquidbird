@@ -9,14 +9,19 @@ const BIRD_X = WORLD_W * 0.3;
 const GROUND_H = 80;
 const MAX_FALL = 900;
 
-type Difficulty = "chill" | "normal" | "hard";
-type ThemeKey = "aurora" | "sunset" | "mint" | "noir";
+type Difficulty = "easy" | "chill" | "normal" | "hard" | "insane" | "nightmare";
+type ThemeKey = "aurora" | "sunset" | "mint" | "noir" | "ember" | "ocean" | "candy" | "forest";
+type BirdStyle = "classic" | "geo" | "prism" | "drop";
+type TrailStyle = "sparkle" | "ribbon" | "smoke" | "none";
 type Phase = "ready" | "playing" | "paused" | "dead";
 
 const DIFFICULTY: Record<Difficulty, { gravity: number; flap: number; speed: number; gap: number; interval: number; label: string }> = {
-  chill:  { gravity: 1500, flap: -480, speed: 150, gap: 220, interval: 1.75, label: "Chill" },
-  normal: { gravity: 1800, flap: -520, speed: 185, gap: 190, interval: 1.55, label: "Normal" },
-  hard:   { gravity: 2100, flap: -560, speed: 230, gap: 160, interval: 1.30, label: "Hard" },
+  easy:      { gravity: 1300, flap: -460, speed: 135, gap: 240, interval: 1.90, label: "Easy" },
+  chill:     { gravity: 1500, flap: -480, speed: 150, gap: 220, interval: 1.75, label: "Chill" },
+  normal:    { gravity: 1800, flap: -520, speed: 185, gap: 190, interval: 1.55, label: "Normal" },
+  hard:      { gravity: 2100, flap: -560, speed: 230, gap: 160, interval: 1.30, label: "Hard" },
+  insane:    { gravity: 2400, flap: -600, speed: 280, gap: 140, interval: 1.05, label: "Insane" },
+  nightmare: { gravity: 2700, flap: -630, speed: 330, gap: 125, interval: 0.85, label: "Nightmare" },
 };
 
 const THEMES: Record<ThemeKey, {
@@ -28,43 +33,28 @@ const THEMES: Record<ThemeKey, {
   orb: number;
   swatch: string[];
 }> = {
-  aurora: {
-    label: "Aurora",
-    sky: ["#2a1b4a", "#3a4d8f", "#6fb6c9"],
-    bird: ["rgba(255,255,255,0.95)", "rgba(255,200,240,0.85)", "rgba(140,120,255,0.7)"],
-    glow: "rgba(255,180,240,0.7)",
-    pipe: "200",
-    orb: 200,
-    swatch: ["#2a1b4a", "#6fb6c9", "#ff9ff3"],
-  },
-  sunset: {
-    label: "Sunset",
-    sky: ["#2d0e3a", "#a83264", "#ffb88c"],
-    bird: ["rgba(255,255,255,0.95)", "rgba(255,210,160,0.85)", "rgba(255,90,140,0.7)"],
-    glow: "rgba(255,160,120,0.75)",
-    pipe: "30",
-    orb: 20,
-    swatch: ["#2d0e3a", "#ff6b6b", "#ffb88c"],
-  },
-  mint: {
-    label: "Mint",
-    sky: ["#062b2a", "#0f6e6b", "#7dd3c0"],
-    bird: ["rgba(255,255,255,0.95)", "rgba(180,255,230,0.85)", "rgba(80,220,200,0.7)"],
-    glow: "rgba(140,255,220,0.75)",
-    pipe: "170",
-    orb: 160,
-    swatch: ["#062b2a", "#7dd3c0", "#a7f3d0"],
-  },
-  noir: {
-    label: "Noir",
-    sky: ["#0a0a14", "#1a1a2e", "#2d2d44"],
-    bird: ["rgba(255,255,255,0.95)", "rgba(220,220,240,0.8)", "rgba(120,120,180,0.6)"],
-    glow: "rgba(255,255,255,0.6)",
-    pipe: "0",
-    orb: 260,
-    swatch: ["#0a0a14", "#2d2d44", "#dcdcef"],
-  },
+  aurora: { label: "Aurora", sky: ["#2a1b4a", "#3a4d8f", "#6fb6c9"], bird: ["rgba(255,255,255,0.95)", "rgba(255,200,240,0.85)", "rgba(140,120,255,0.7)"], glow: "rgba(255,180,240,0.7)", pipe: "200", orb: 200, swatch: ["#2a1b4a", "#6fb6c9", "#ff9ff3"] },
+  sunset: { label: "Sunset", sky: ["#2d0e3a", "#a83264", "#ffb88c"], bird: ["rgba(255,255,255,0.95)", "rgba(255,210,160,0.85)", "rgba(255,90,140,0.7)"], glow: "rgba(255,160,120,0.75)", pipe: "30", orb: 20, swatch: ["#2d0e3a", "#ff6b6b", "#ffb88c"] },
+  mint: { label: "Mint", sky: ["#062b2a", "#0f6e6b", "#7dd3c0"], bird: ["rgba(255,255,255,0.95)", "rgba(180,255,230,0.85)", "rgba(80,220,200,0.7)"], glow: "rgba(140,255,220,0.75)", pipe: "170", orb: 160, swatch: ["#062b2a", "#7dd3c0", "#a7f3d0"] },
+  noir: { label: "Noir", sky: ["#0a0a14", "#1a1a2e", "#2d2d44"], bird: ["rgba(255,255,255,0.95)", "rgba(220,220,240,0.8)", "rgba(120,120,180,0.6)"], glow: "rgba(255,255,255,0.6)", pipe: "0", orb: 260, swatch: ["#0a0a14", "#2d2d44", "#dcdcef"] },
+  ember: { label: "Ember", sky: ["#1a0606", "#5a1a14", "#ff7a3a"], bird: ["rgba(255,255,255,0.95)", "rgba(255,170,120,0.85)", "rgba(255,80,40,0.7)"], glow: "rgba(255,140,80,0.85)", pipe: "15", orb: 10, swatch: ["#1a0606", "#ff7a3a", "#ffd166"] },
+  ocean: { label: "Ocean", sky: ["#031a3a", "#0a4a8a", "#5fc7e0"], bird: ["rgba(255,255,255,0.95)", "rgba(170,220,255,0.85)", "rgba(60,140,220,0.7)"], glow: "rgba(120,200,255,0.8)", pipe: "210", orb: 210, swatch: ["#031a3a", "#0a4a8a", "#5fc7e0"] },
+  candy: { label: "Candy", sky: ["#3a0a3a", "#c83a9a", "#ffc8e8"], bird: ["rgba(255,255,255,0.95)", "rgba(255,200,240,0.85)", "rgba(255,120,200,0.7)"], glow: "rgba(255,180,230,0.85)", pipe: "320", orb: 320, swatch: ["#3a0a3a", "#ff7ac6", "#ffc8e8"] },
+  forest: { label: "Forest", sky: ["#04140a", "#0e4a2a", "#7acf8a"], bird: ["rgba(255,255,255,0.95)", "rgba(200,255,210,0.85)", "rgba(80,180,110,0.7)"], glow: "rgba(160,255,180,0.8)", pipe: "130", orb: 130, swatch: ["#04140a", "#0e4a2a", "#7acf8a"] },
 };
+
+const BIRD_STYLES: { key: BirdStyle; label: string }[] = [
+  { key: "classic", label: "Classic" },
+  { key: "geo", label: "Hex" },
+  { key: "prism", label: "Prism" },
+  { key: "drop", label: "Drop" },
+];
+const TRAIL_STYLES: { key: TrailStyle; label: string }[] = [
+  { key: "sparkle", label: "Sparkle" },
+  { key: "ribbon", label: "Ribbon" },
+  { key: "smoke", label: "Smoke" },
+  { key: "none", label: "None" },
+];
 
 type Pipe = { x: number; gapY: number; passed: boolean; id: number };
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; hue: number };
