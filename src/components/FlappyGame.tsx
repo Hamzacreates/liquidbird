@@ -846,8 +846,82 @@ export function FlappyGame() {
               </button>
             </Section>
 
+            <Section title="Offline">
+              <button
+                onClick={async () => {
+                  try {
+                    setDownloading(true);
+                    const res = await fetch("/glassbird-offline.html");
+                    const html = await res.text();
+                    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "Glassbird.html";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 1500);
+                  } catch (e) {
+                    console.error(e);
+                  } finally {
+                    setDownloading(false);
+                  }
+                }}
+                className="w-full glass-strong rounded-xl px-4 py-3 flex items-center justify-center gap-2 hover:scale-[1.01] transition text-sm font-medium"
+              >
+                <Download className="h-4 w-4" />
+                {downloading ? "Preparing…" : "Download Game (offline HTML)"}
+              </button>
+              <p className="text-[11px] text-white/50 mt-2 leading-relaxed">
+                Saves a single self-contained <code className="text-white/70">Glassbird.html</code> file to your device. Open it any time — no internet required.
+              </p>
+            </Section>
+
+            <Section title="About">
+              <div className="text-xs text-white/70 leading-relaxed">
+                Glassbird — a liquid glass take on Flappy Bird.<br />
+                <span className="text-white/50">Made with care by</span> <span className="text-white">Hamza</span>.<br />
+                © {new Date().getFullYear()} Hamza. All rights reserved.
+              </div>
+            </Section>
+
             <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 text-center mt-2">
-              shortcuts · space P M R
+              shortcuts · space P M R F Z
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Terms & welcome gate */}
+      {!termsAccepted && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md glass-strong rounded-3xl p-7 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-white/60 mb-1">
+              <Shield className="h-3 w-3" /> Welcome
+            </div>
+            <h2 className="font-display text-4xl leading-none mb-3">
+              Glass<span className="italic">bird</span>
+            </h2>
+            <p className="text-sm text-white/75 leading-relaxed">
+              A liquid glass take on Flappy Bird — crafted by <span className="text-white font-medium">Hamza</span>.
+            </p>
+            <div className="my-5 h-px bg-white/10" />
+            <div className="text-[11px] uppercase tracking-[0.22em] text-white/50 mb-2">Terms &amp; conditions</div>
+            <ul className="text-xs text-white/70 leading-relaxed space-y-1.5 list-disc pl-4">
+              <li>Glassbird is provided as-is, for personal entertainment. No warranties.</li>
+              <li>Game progress is stored locally on this device. Clearing site data erases it.</li>
+              <li>This app does not collect, track, or transmit any personal data.</li>
+              <li>All artwork, code and assets are © {new Date().getFullYear()} Hamza. Reuse without permission is not allowed.</li>
+            </ul>
+            <div className="mt-5 flex items-center justify-between gap-3">
+              <div className="text-[10px] uppercase tracking-[0.25em] text-white/40">© Hamza</div>
+              <button
+                onClick={() => { localStorage.setItem("glassbird:terms", "1"); setTermsAccepted(true); }}
+                className="glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform"
+              >
+                I agree — let's fly
+              </button>
             </div>
           </div>
         </div>
