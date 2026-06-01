@@ -786,6 +786,34 @@ export function FlappyGame() {
               </div>
             </Section>
 
+            <Section title="Bird style">
+              <div className="grid grid-cols-4 gap-2">
+                {BIRD_STYLES.map((b) => (
+                  <button
+                    key={b.key}
+                    onClick={() => setBirdStyle(b.key)}
+                    className={`rounded-xl py-2 text-xs capitalize transition ${birdStyle === b.key ? "glass-strong" : "glass hover:bg-white/10"}`}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+            </Section>
+
+            <Section title="Trail">
+              <div className="grid grid-cols-4 gap-2">
+                {TRAIL_STYLES.map((b) => (
+                  <button
+                    key={b.key}
+                    onClick={() => setTrailStyle(b.key)}
+                    className={`rounded-xl py-2 text-xs capitalize transition ${trailStyle === b.key ? "glass-strong" : "glass hover:bg-white/10"}`}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+            </Section>
+
             <Section title="Audio">
               <button
                 onClick={() => setSoundOn((s) => !s)}
