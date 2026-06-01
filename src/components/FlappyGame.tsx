@@ -181,7 +181,7 @@ export function FlappyGame() {
 
   useEffect(() => { localStorage.setItem("glassbird:theme", theme); stateRef.current.theme = THEMES[theme]; }, [theme]);
   useEffect(() => { localStorage.setItem("glassbird:diff", difficulty); stateRef.current.diff = DIFFICULTY[difficulty]; }, [difficulty]);
-  useEffect(() => { localStorage.setItem("glassbird:bird", birdStyle); }, [birdStyle]);
+  useEffect(() => { localStorage.setItem("glassbird:bird", birdStyle); stateRef.current.birdStyle = birdStyle; }, [birdStyle]);
   useEffect(() => { localStorage.setItem("glassbird:trail", trailStyle); }, [trailStyle]);
   useEffect(() => { localStorage.setItem("glassbird:sound", soundOn ? "1" : "0"); sfxRef.current.enabled = soundOn; }, [soundOn]);
 
