@@ -737,8 +737,9 @@ export function FlappyGame() {
         )}
 
         {!focusMode && (
-          <footer className="text-[10px] uppercase tracking-[0.25em] text-white/40 text-center">
-            space flap · P pause · M mute · R reset · F fullscreen · Z focus
+          <footer className="text-[10px] uppercase tracking-[0.25em] text-white/40 text-center leading-relaxed">
+            <div>space flap · P pause · M mute · R reset · F fullscreen · Z focus</div>
+            <div className="mt-1 text-white/30">© {new Date().getFullYear()} Hamza · Made by Hamza · All rights reserved</div>
           </footer>
         )}
       </div>
