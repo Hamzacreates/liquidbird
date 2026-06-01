@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { Pause, Play, RotateCcw, Settings2, Volume2, VolumeX, X, Sparkles, Trophy, Zap, Maximize2, Minimize2, Wifi, WifiOff, Keyboard, Target, Flame, Award, Clock, Activity, Gauge } from "lucide-react";
+import { Pause, Play, RotateCcw, Settings2, Volume2, VolumeX, X, Sparkles, Trophy, Zap, Maximize2, Minimize2, Wifi, WifiOff, Keyboard, Target, Flame, Award, Clock, Activity, Gauge, Download, Shield } from "lucide-react";
 
 // ---------- World ----------
 const WORLD_W = 480;
@@ -9,14 +9,19 @@ const BIRD_X = WORLD_W * 0.3;
 const GROUND_H = 80;
 const MAX_FALL = 900;
 
-type Difficulty = "chill" | "normal" | "hard";
-type ThemeKey = "aurora" | "sunset" | "mint" | "noir";
+type Difficulty = "easy" | "chill" | "normal" | "hard" | "insane" | "nightmare";
+type ThemeKey = "aurora" | "sunset" | "mint" | "noir" | "ember" | "ocean" | "candy" | "forest";
+type BirdStyle = "classic" | "geo" | "prism" | "drop";
+type TrailStyle = "sparkle" | "ribbon" | "smoke" | "none";
 type Phase = "ready" | "playing" | "paused" | "dead";
 
 const DIFFICULTY: Record<Difficulty, { gravity: number; flap: number; speed: number; gap: number; interval: number; label: string }> = {
-  chill:  { gravity: 1500, flap: -480, speed: 150, gap: 220, interval: 1.75, label: "Chill" },
-  normal: { gravity: 1800, flap: -520, speed: 185, gap: 190, interval: 1.55, label: "Normal" },
-  hard:   { gravity: 2100, flap: -560, speed: 230, gap: 160, interval: 1.30, label: "Hard" },
+  easy:      { gravity: 1300, flap: -460, speed: 135, gap: 240, interval: 1.90, label: "Easy" },
+  chill:     { gravity: 1500, flap: -480, speed: 150, gap: 220, interval: 1.75, label: "Chill" },
+  normal:    { gravity: 1800, flap: -520, speed: 185, gap: 190, interval: 1.55, label: "Normal" },
+  hard:      { gravity: 2100, flap: -560, speed: 230, gap: 160, interval: 1.30, label: "Hard" },
+  insane:    { gravity: 2400, flap: -600, speed: 280, gap: 140, interval: 1.05, label: "Insane" },
+  nightmare: { gravity: 2700, flap: -630, speed: 330, gap: 125, interval: 0.85, label: "Nightmare" },
 };
 
 const THEMES: Record<ThemeKey, {
@@ -28,46 +33,31 @@ const THEMES: Record<ThemeKey, {
   orb: number;
   swatch: string[];
 }> = {
-  aurora: {
-    label: "Aurora",
-    sky: ["#2a1b4a", "#3a4d8f", "#6fb6c9"],
-    bird: ["rgba(255,255,255,0.95)", "rgba(255,200,240,0.85)", "rgba(140,120,255,0.7)"],
-    glow: "rgba(255,180,240,0.7)",
-    pipe: "200",
-    orb: 200,
-    swatch: ["#2a1b4a", "#6fb6c9", "#ff9ff3"],
-  },
-  sunset: {
-    label: "Sunset",
-    sky: ["#2d0e3a", "#a83264", "#ffb88c"],
-    bird: ["rgba(255,255,255,0.95)", "rgba(255,210,160,0.85)", "rgba(255,90,140,0.7)"],
-    glow: "rgba(255,160,120,0.75)",
-    pipe: "30",
-    orb: 20,
-    swatch: ["#2d0e3a", "#ff6b6b", "#ffb88c"],
-  },
-  mint: {
-    label: "Mint",
-    sky: ["#062b2a", "#0f6e6b", "#7dd3c0"],
-    bird: ["rgba(255,255,255,0.95)", "rgba(180,255,230,0.85)", "rgba(80,220,200,0.7)"],
-    glow: "rgba(140,255,220,0.75)",
-    pipe: "170",
-    orb: 160,
-    swatch: ["#062b2a", "#7dd3c0", "#a7f3d0"],
-  },
-  noir: {
-    label: "Noir",
-    sky: ["#0a0a14", "#1a1a2e", "#2d2d44"],
-    bird: ["rgba(255,255,255,0.95)", "rgba(220,220,240,0.8)", "rgba(120,120,180,0.6)"],
-    glow: "rgba(255,255,255,0.6)",
-    pipe: "0",
-    orb: 260,
-    swatch: ["#0a0a14", "#2d2d44", "#dcdcef"],
-  },
+  aurora: { label: "Aurora", sky: ["#2a1b4a", "#3a4d8f", "#6fb6c9"], bird: ["rgba(255,255,255,0.95)", "rgba(255,200,240,0.85)", "rgba(140,120,255,0.7)"], glow: "rgba(255,180,240,0.7)", pipe: "200", orb: 200, swatch: ["#2a1b4a", "#6fb6c9", "#ff9ff3"] },
+  sunset: { label: "Sunset", sky: ["#2d0e3a", "#a83264", "#ffb88c"], bird: ["rgba(255,255,255,0.95)", "rgba(255,210,160,0.85)", "rgba(255,90,140,0.7)"], glow: "rgba(255,160,120,0.75)", pipe: "30", orb: 20, swatch: ["#2d0e3a", "#ff6b6b", "#ffb88c"] },
+  mint: { label: "Mint", sky: ["#062b2a", "#0f6e6b", "#7dd3c0"], bird: ["rgba(255,255,255,0.95)", "rgba(180,255,230,0.85)", "rgba(80,220,200,0.7)"], glow: "rgba(140,255,220,0.75)", pipe: "170", orb: 160, swatch: ["#062b2a", "#7dd3c0", "#a7f3d0"] },
+  noir: { label: "Noir", sky: ["#0a0a14", "#1a1a2e", "#2d2d44"], bird: ["rgba(255,255,255,0.95)", "rgba(220,220,240,0.8)", "rgba(120,120,180,0.6)"], glow: "rgba(255,255,255,0.6)", pipe: "0", orb: 260, swatch: ["#0a0a14", "#2d2d44", "#dcdcef"] },
+  ember: { label: "Ember", sky: ["#1a0606", "#5a1a14", "#ff7a3a"], bird: ["rgba(255,255,255,0.95)", "rgba(255,170,120,0.85)", "rgba(255,80,40,0.7)"], glow: "rgba(255,140,80,0.85)", pipe: "15", orb: 10, swatch: ["#1a0606", "#ff7a3a", "#ffd166"] },
+  ocean: { label: "Ocean", sky: ["#031a3a", "#0a4a8a", "#5fc7e0"], bird: ["rgba(255,255,255,0.95)", "rgba(170,220,255,0.85)", "rgba(60,140,220,0.7)"], glow: "rgba(120,200,255,0.8)", pipe: "210", orb: 210, swatch: ["#031a3a", "#0a4a8a", "#5fc7e0"] },
+  candy: { label: "Candy", sky: ["#3a0a3a", "#c83a9a", "#ffc8e8"], bird: ["rgba(255,255,255,0.95)", "rgba(255,200,240,0.85)", "rgba(255,120,200,0.7)"], glow: "rgba(255,180,230,0.85)", pipe: "320", orb: 320, swatch: ["#3a0a3a", "#ff7ac6", "#ffc8e8"] },
+  forest: { label: "Forest", sky: ["#04140a", "#0e4a2a", "#7acf8a"], bird: ["rgba(255,255,255,0.95)", "rgba(200,255,210,0.85)", "rgba(80,180,110,0.7)"], glow: "rgba(160,255,180,0.8)", pipe: "130", orb: 130, swatch: ["#04140a", "#0e4a2a", "#7acf8a"] },
 };
 
+const BIRD_STYLES: { key: BirdStyle; label: string }[] = [
+  { key: "classic", label: "Classic" },
+  { key: "geo", label: "Hex" },
+  { key: "prism", label: "Prism" },
+  { key: "drop", label: "Drop" },
+];
+const TRAIL_STYLES: { key: TrailStyle; label: string }[] = [
+  { key: "sparkle", label: "Sparkle" },
+  { key: "ribbon", label: "Ribbon" },
+  { key: "smoke", label: "Smoke" },
+  { key: "none", label: "None" },
+];
+
 type Pipe = { x: number; gapY: number; passed: boolean; id: number };
-type Particle = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; hue: number };
+type Particle = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; hue: number; kind?: TrailStyle };
 
 // ---------- Audio ----------
 class SfxEngine {
@@ -127,11 +117,15 @@ export function FlappyGame() {
   // Persistent settings
   const [theme, setTheme] = useState<ThemeKey>("aurora");
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [birdStyle, setBirdStyle] = useState<BirdStyle>("classic");
+  const [trailStyle, setTrailStyle] = useState<TrailStyle>("sparkle");
   const [soundOn, setSoundOn] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [termsAccepted, setTermsAccepted] = useState(true); // assume true to avoid SSR flash; verified in effect
+  const [downloading, setDownloading] = useState(false);
 
   // Stats
   const [best, setBest] = useState(0);
@@ -159,6 +153,7 @@ export function FlappyGame() {
     flash: 0,
     diff: DIFFICULTY.normal,
     theme: THEMES.aurora,
+    birdStyle: "classic" as BirdStyle,
   });
 
   const theTheme = useMemo(() => THEMES[theme], [theme]);
@@ -170,16 +165,24 @@ export function FlappyGame() {
     const f = Number(localStorage.getItem("glassbird:flaps") || 0);
     const t = (localStorage.getItem("glassbird:theme") as ThemeKey) || "aurora";
     const d = (localStorage.getItem("glassbird:diff") as Difficulty) || "normal";
+    const bs = (localStorage.getItem("glassbird:bird") as BirdStyle) || "classic";
+    const ts = (localStorage.getItem("glassbird:trail") as TrailStyle) || "sparkle";
     const s = localStorage.getItem("glassbird:sound");
+    const ta = localStorage.getItem("glassbird:terms");
     stateRef.current.best = b;
     setBest(b); setGames(g); setTotalFlaps(f);
     if (THEMES[t]) setTheme(t);
     if (DIFFICULTY[d]) setDifficulty(d);
+    if (BIRD_STYLES.some((x) => x.key === bs)) setBirdStyle(bs);
+    if (TRAIL_STYLES.some((x) => x.key === ts)) setTrailStyle(ts);
     if (s !== null) setSoundOn(s === "1");
+    setTermsAccepted(ta === "1");
   }, []);
 
   useEffect(() => { localStorage.setItem("glassbird:theme", theme); stateRef.current.theme = THEMES[theme]; }, [theme]);
   useEffect(() => { localStorage.setItem("glassbird:diff", difficulty); stateRef.current.diff = DIFFICULTY[difficulty]; }, [difficulty]);
+  useEffect(() => { localStorage.setItem("glassbird:bird", birdStyle); stateRef.current.birdStyle = birdStyle; }, [birdStyle]);
+  useEffect(() => { localStorage.setItem("glassbird:trail", trailStyle); }, [trailStyle]);
   useEffect(() => { localStorage.setItem("glassbird:sound", soundOn ? "1" : "0"); sfxRef.current.enabled = soundOn; }, [soundOn]);
 
   const reset = useCallback(() => {
@@ -206,19 +209,22 @@ export function FlappyGame() {
     sfxRef.current.flap();
     setRunFlaps((f) => f + 1);
     setTotalFlaps((f) => { const n = f + 1; localStorage.setItem("glassbird:flaps", String(n)); return n; });
-    for (let i = 0; i < 10; i++) {
+    const tk = trailStyle;
+    const count = tk === "none" ? 0 : tk === "ribbon" ? 6 : tk === "smoke" ? 14 : 10;
+    for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 60 + Math.random() * 120;
       s.particles.push({
         x: BIRD_X - 6, y: s.bird.y + 6,
         vx: Math.cos(a) * sp * 0.4 - 40,
         vy: Math.sin(a) * sp * 0.4 + 30,
-        life: 0, max: 0.5 + Math.random() * 0.4,
-        size: 2 + Math.random() * 3,
+        life: 0, max: 0.5 + Math.random() * 0.5,
+        size: tk === "smoke" ? 4 + Math.random() * 4 : 2 + Math.random() * 3,
         hue: stateRef.current.theme.orb + Math.random() * 80 - 40,
+        kind: tk,
       });
     }
-  }, [reset]);
+  }, [reset, trailStyle]);
 
   const togglePause = useCallback(() => {
     const s = stateRef.current;
@@ -438,13 +444,27 @@ export function FlappyGame() {
 
       for (const p of s.particles) {
         const a = 1 - p.life / p.max;
-        ctx.fillStyle = `hsla(${p.hue}, 90%, 75%, ${a * 0.9})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * (0.5 + a * 0.5), 0, Math.PI * 2);
-        ctx.fill();
+        if (p.kind === "ribbon") {
+          ctx.strokeStyle = `hsla(${p.hue}, 90%, 75%, ${a * 0.8})`;
+          ctx.lineWidth = p.size;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + p.vx * 0.04, p.y + p.vy * 0.04);
+          ctx.stroke();
+        } else if (p.kind === "smoke") {
+          ctx.fillStyle = `hsla(${p.hue}, 40%, 80%, ${a * 0.4})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * (1 + (1 - a) * 1.5), 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = `hsla(${p.hue}, 90%, 75%, ${a * 0.9})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * (0.5 + a * 0.5), 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
-      drawBird(ctx, s.bird.y, s.bird.rot, s.t, TH.bird, TH.glow);
+      drawBird(ctx, s.bird.y, s.bird.rot, s.t, TH.bird, TH.glow, s.birdStyle);
 
       if (s.phase === "paused") {
         ctx.fillStyle = "rgba(10,10,30,0.45)";
@@ -717,8 +737,9 @@ export function FlappyGame() {
         )}
 
         {!focusMode && (
-          <footer className="text-[10px] uppercase tracking-[0.25em] text-white/40 text-center">
-            space flap · P pause · M mute · R reset · F fullscreen · Z focus
+          <footer className="text-[10px] uppercase tracking-[0.25em] text-white/40 text-center leading-relaxed">
+            <div>space flap · P pause · M mute · R reset · F fullscreen · Z focus</div>
+            <div className="mt-1 text-white/30">© {new Date().getFullYear()} Hamza · Made by Hamza · All rights reserved</div>
           </footer>
         )}
       </div>
@@ -728,7 +749,7 @@ export function FlappyGame() {
       {settingsOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSettingsOpen(false)}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md glass-strong rounded-3xl p-6 animate-in slide-in-from-bottom-6 duration-300">
+          <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md glass-strong rounded-3xl p-6 animate-in slide-in-from-bottom-6 duration-300 max-h-[88vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-display text-2xl">Settings</h3>
               <button onClick={() => setSettingsOpen(false)} className="h-8 w-8 grid place-items-center rounded-full glass hover:scale-105 transition">
@@ -760,6 +781,34 @@ export function FlappyGame() {
                     className={`rounded-xl py-2 text-sm transition ${difficulty === d ? "glass-strong" : "glass hover:bg-white/10"}`}
                   >
                     {DIFFICULTY[d].label}
+                  </button>
+                ))}
+              </div>
+            </Section>
+
+            <Section title="Bird style">
+              <div className="grid grid-cols-4 gap-2">
+                {BIRD_STYLES.map((b) => (
+                  <button
+                    key={b.key}
+                    onClick={() => setBirdStyle(b.key)}
+                    className={`rounded-xl py-2 text-xs capitalize transition ${birdStyle === b.key ? "glass-strong" : "glass hover:bg-white/10"}`}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+            </Section>
+
+            <Section title="Trail">
+              <div className="grid grid-cols-4 gap-2">
+                {TRAIL_STYLES.map((b) => (
+                  <button
+                    key={b.key}
+                    onClick={() => setTrailStyle(b.key)}
+                    className={`rounded-xl py-2 text-xs capitalize transition ${trailStyle === b.key ? "glass-strong" : "glass hover:bg-white/10"}`}
+                  >
+                    {b.label}
                   </button>
                 ))}
               </div>
@@ -797,8 +846,82 @@ export function FlappyGame() {
               </button>
             </Section>
 
+            <Section title="Offline">
+              <button
+                onClick={async () => {
+                  try {
+                    setDownloading(true);
+                    const res = await fetch("/glassbird-offline.html");
+                    const html = await res.text();
+                    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "Glassbird.html";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 1500);
+                  } catch (e) {
+                    console.error(e);
+                  } finally {
+                    setDownloading(false);
+                  }
+                }}
+                className="w-full glass-strong rounded-xl px-4 py-3 flex items-center justify-center gap-2 hover:scale-[1.01] transition text-sm font-medium"
+              >
+                <Download className="h-4 w-4" />
+                {downloading ? "Preparing…" : "Download Game (offline HTML)"}
+              </button>
+              <p className="text-[11px] text-white/50 mt-2 leading-relaxed">
+                Saves a single self-contained <code className="text-white/70">Glassbird.html</code> file to your device. Open it any time — no internet required.
+              </p>
+            </Section>
+
+            <Section title="About">
+              <div className="text-xs text-white/70 leading-relaxed">
+                Glassbird — a liquid glass take on Flappy Bird.<br />
+                <span className="text-white/50">Made with care by</span> <span className="text-white">Hamza</span>.<br />
+                © {new Date().getFullYear()} Hamza. All rights reserved.
+              </div>
+            </Section>
+
             <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 text-center mt-2">
-              shortcuts · space P M R
+              shortcuts · space P M R F Z
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Terms & welcome gate */}
+      {!termsAccepted && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md glass-strong rounded-3xl p-7 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-white/60 mb-1">
+              <Shield className="h-3 w-3" /> Welcome
+            </div>
+            <h2 className="font-display text-4xl leading-none mb-3">
+              Glass<span className="italic">bird</span>
+            </h2>
+            <p className="text-sm text-white/75 leading-relaxed">
+              A liquid glass take on Flappy Bird — crafted by <span className="text-white font-medium">Hamza</span>.
+            </p>
+            <div className="my-5 h-px bg-white/10" />
+            <div className="text-[11px] uppercase tracking-[0.22em] text-white/50 mb-2">Terms &amp; conditions</div>
+            <ul className="text-xs text-white/70 leading-relaxed space-y-1.5 list-disc pl-4">
+              <li>Glassbird is provided as-is, for personal entertainment. No warranties.</li>
+              <li>Game progress is stored locally on this device. Clearing site data erases it.</li>
+              <li>This app does not collect, track, or transmit any personal data.</li>
+              <li>All artwork, code and assets are © {new Date().getFullYear()} Hamza. Reuse without permission is not allowed.</li>
+            </ul>
+            <div className="mt-5 flex items-center justify-between gap-3">
+              <div className="text-[10px] uppercase tracking-[0.25em] text-white/40">© Hamza</div>
+              <button
+                onClick={() => { localStorage.setItem("glassbird:terms", "1"); setTermsAccepted(true); }}
+                className="glass-strong rounded-full px-6 py-3 text-sm font-medium hover:scale-[1.03] transition-transform"
+              >
+                I agree — let's fly
+              </button>
             </div>
           </div>
         </div>
@@ -965,7 +1088,7 @@ function drawGround(ctx: CanvasRenderingContext2D, t: number) {
   ctx.restore();
 }
 
-function drawBird(ctx: CanvasRenderingContext2D, y: number, rot: number, t: number, palette: [string, string, string], glow: string) {
+function drawBird(ctx: CanvasRenderingContext2D, y: number, rot: number, t: number, palette: [string, string, string], glow: string, style: BirdStyle = "classic") {
   ctx.save();
   ctx.translate(BIRD_X, y);
   ctx.rotate(rot);
@@ -984,7 +1107,25 @@ function drawBird(ctx: CanvasRenderingContext2D, y: number, rot: number, t: numb
   body.addColorStop(1, palette[2]);
   ctx.fillStyle = body;
   ctx.beginPath();
-  ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
+  if (style === "geo") {
+    const s = BIRD_R;
+    ctx.moveTo(s, 0);
+    for (let i = 1; i < 6; i++) {
+      const a = (i * Math.PI * 2) / 6;
+      ctx.lineTo(Math.cos(a) * s, Math.sin(a) * s);
+    }
+    ctx.closePath();
+  } else if (style === "prism") {
+    const s = BIRD_R;
+    ctx.moveTo(0, -s); ctx.lineTo(s, 0); ctx.lineTo(0, s); ctx.lineTo(-s, 0); ctx.closePath();
+  } else if (style === "drop") {
+    ctx.moveTo(BIRD_R, 0);
+    ctx.bezierCurveTo(BIRD_R, BIRD_R, -BIRD_R, BIRD_R, -BIRD_R, 0);
+    ctx.bezierCurveTo(-BIRD_R, -BIRD_R * 1.2, BIRD_R, -BIRD_R * 1.2, BIRD_R, 0);
+    ctx.closePath();
+  } else {
+    ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
+  }
   ctx.fill();
 
   ctx.strokeStyle = "rgba(255,255,255,0.6)";
